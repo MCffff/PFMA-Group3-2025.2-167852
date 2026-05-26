@@ -1,13 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import DashboardView from "../views/Dashboard/DashboardView";
-
-const Transactions = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold mb-4 text-slate-800">Quản lý Giao dịch (UC05)</h1>
-    <p className="text-slate-600">Danh sách thu chi và form Thêm/Sửa/Xóa giao dịch.</p>
-  </div>
-);
+import TransactionsView from '../views/Transactions/TransactionsView';
 
 const Analytics = () => (
   <div className="p-6">
@@ -30,7 +24,7 @@ const AppRoutes = () => {
       <Route path="/" element={<MainLayout />}>
         <Route index element={<Navigate to="/dashboard" replace />} /> 
         <Route path="dashboard" element={<DashboardView />} />
-        <Route path="transactions" element={<Transactions />} />
+        <Route path="transactions" element={<TransactionsView />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="budgets" element={<Budgets />} />
       </Route>
