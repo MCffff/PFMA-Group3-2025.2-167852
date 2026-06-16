@@ -19,8 +19,7 @@ public class WalletController {
     }
 
     /**
-     * 1. LẤY DANH SÁCH VÍ ĐỘNG THEO TÀI KHOẢN (Sửa lỗi dùng chung dữ liệu)
-     * Endpoint: GET http://localhost:8080/api/wallets/user/{userId}
+     * 1. LẤY DANH SÁCH VÍ ĐỘNG THEO TÀI KHOẢN
      */
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<Wallet>> getWalletsByUserId(@PathVariable Long userId) {
@@ -29,8 +28,7 @@ public class WalletController {
     }
 
     /**
-     * 2. TẠO VÍ MỚI VÀ GẮN CHẶT VÀO TÀI KHOẢN SỞ HỮU (Dùng cấu trúc if-else an toàn)
-     * Endpoint: POST http://localhost:8080/api/wallets/user/{userId}
+     * 2. TẠO VÍ MỚI VÀ GẮN CHẶT VÀO TÀI KHOẢN SỞ HỮU
      */
     @PostMapping("/user/{userId}")
     public ResponseEntity<?> createWallet(@PathVariable Long userId, @RequestBody Wallet wallet) {
@@ -43,8 +41,7 @@ public class WalletController {
     }
 
     /**
-     * 3. HOÀN THIỆN UC04: CHỈNH SỬA THÔNG TIN VÍ TIỀN
-     * Endpoint: PUT http://localhost:8080/api/wallets/{id}
+     * 3. UC04: CHỈNH SỬA THÔNG TIN VÍ TIỀN
      */
     @PutMapping("/{id}")
     public ResponseEntity<?> updateWallet(@PathVariable Long id, @RequestBody Wallet walletDetails) {
@@ -58,8 +55,7 @@ public class WalletController {
     }
 
     /**
-     * 4. HOÀN THIỆN UC04: THỰC HIỆN XÓA VÍ
-     * Endpoint: DELETE http://localhost:8080/api/wallets/{id}
+     * 4. UC04: THỰC HIỆN XÓA VÍ
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteWallet(@PathVariable Long id) {
