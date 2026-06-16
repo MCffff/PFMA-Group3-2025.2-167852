@@ -83,4 +83,9 @@ public class TransactionService {
         walletRepository.save(wallet);
         return transactionRepository.save(transaction);
     }
+
+    public List<Transaction> getTransactionsByUserId(Long userId) {
+        // Hãy chắc chắn rằng tên hàm này viết hoa chữ B, U, I chính xác
+        return transactionRepository.findByUserId(userId);
+    }
 }
