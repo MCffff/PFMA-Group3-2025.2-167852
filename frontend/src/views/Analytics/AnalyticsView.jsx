@@ -79,7 +79,7 @@ const AnalyticsView = () => {
         datasets: [
             {
                 type: 'line',
-                label: 'Đường dự báo chi tiêu (UC11)',
+                label: 'Đường dự báo chi tiêu ',
                 data: forecastLineData,
                 borderColor: '#6366f1', // Tím Indigo
                 borderWidth: 2.5,
@@ -128,7 +128,7 @@ const AnalyticsView = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* BIỂU ĐỒ CỘT XU HƯỚNG & DỰ BÁO XU HƯỚNG (UC11) */}
+                {/* BIỂU ĐỒ CỘT XU HƯỚNG & DỰ BÁO XU HƯỚNG */}
                 <div className="lg:col-span-2 p-6 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-4">
                     <div className="flex items-center gap-2 font-bold text-slate-800">
                         <BarChart3 className="text-indigo-500" size={20} />
