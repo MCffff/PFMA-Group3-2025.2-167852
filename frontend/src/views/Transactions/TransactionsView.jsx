@@ -1,4 +1,3 @@
-// src/views/Transactions/TransactionsView.jsx
 import { useState, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownLeft, Plus, Loader2, X, AlertCircle } from 'lucide-react';
 import api from '../../services/api';
@@ -9,7 +8,6 @@ const TransactionsView = () => {
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // Đọc động ID của tài khoản đang đăng nhập từ sessionStorage
     const currentUserId = sessionStorage.getItem('userId');
 
     // State quản lý Form nhập liệu giao dịch mới
@@ -29,7 +27,7 @@ const TransactionsView = () => {
         }
         try {
             setLoading(true);
-            // Gọi chính xác cổng API lọc theo User ID vừa nâng cấp ở Backend
+            // Gọi chính xác cổng API lọc theo User ID
             const response = await api.get(`/transactions/user/${currentUserId}`);
             setTransactions(response.data);
             setError(null);
