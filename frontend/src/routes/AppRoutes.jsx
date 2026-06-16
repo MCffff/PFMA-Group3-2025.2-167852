@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import DashboardView from "../views/Dashboard/DashboardView";
 import TransactionsView from '../views/Transactions/TransactionsView';
+import BudgetsView from '../views/Budgets/BudgetsView';
 
 const Analytics = () => (
   <div className="p-6">
@@ -26,7 +27,7 @@ const AppRoutes = () => {
         <Route path="dashboard" element={<DashboardView />} />
         <Route path="transactions" element={<TransactionsView />} />
         <Route path="analytics" element={<Analytics />} />
-        <Route path="budgets" element={<Budgets />} />
+        <Route path="budgets" element={<BudgetsView />} />
       </Route>
       
       {/* Bắt lỗi nếu người dùng gõ sai URL */}
