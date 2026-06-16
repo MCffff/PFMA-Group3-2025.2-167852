@@ -1,39 +1,58 @@
+// src/routes/AppRoutes.jsx
 import { Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import DashboardView from "../views/Dashboard/DashboardView";
 import TransactionsView from '../views/Transactions/TransactionsView';
 import BudgetsView from '../views/Budgets/BudgetsView';
+import AnalyticsView from '../views/Analytics/AnalyticsView';
+import LoginView from '../views/Auth/LoginView';
+import RegisterView from '../views/Auth/RegisterView';
+import ChangePasswordView from '../views/Profile/ChangePasswordView';
 
-const Analytics = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold mb-4 text-slate-800">Báo cáo & Phân tích (UC08, UC11)</h1>
-    <p className="text-slate-600">Biểu đồ cơ cấu Thu/Chi và đường nét đứt dự báo tài chính tương lai.</p>
-  </div>
-);
-
-const Budgets = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold mb-4 text-slate-800">Ngân sách & Hạn mức (UC09)</h1>
-    <p className="text-slate-600">Thiết lập hạn mức chi tiêu theo danh mục và tính năng lặp lại hàng tháng.</p>
-  </div>
-);
+// CHIẾC KHÓA BẢO MẬT (ProtectedRoute)
+const ProtectedRoute = ({ children }) => {
+    const token = sessionStorage.getItem('token');
+    if (!token) {
+        return <Navigate to="/login" replace />;
+    }
+    return children;
+};
 
 const AppRoutes = () => {
-  return (
-    <Routes>
-      {/* Tất cả các trang chính được bọc trong MainLayout để dùng chung Sidebar */}
-      <Route path="/" element={<MainLayout />}>
-        <Route index element={<Navigate to="/dashboard" replace />} /> 
-        <Route path="dashboard" element={<DashboardView />} />
-        <Route path="transactions" element={<TransactionsView />} />
-        <Route path="analytics" element={<Analytics />} />
-        <Route path="budgets" element={<BudgetsView />} />
-      </Route>
-      
-      {/* Bắt lỗi nếu người dùng gõ sai URL */}
-      <Route path="*" element={<div className="p-10 text-center font-bold text-red-500">404 - Không tìm thấy trang</div>} />
-    </Routes>
-  );
+    return (
+        <Routes>
+            {/* ================= VÙNG CÔNG CỘNG (PUBLIC ROUTES) ================= */}
+            {/* Người dùng chưa đăng nhập bắt buộc phải đi qua vùng này trước */}
+            <Route path="/login" element={<LoginView />} />
+            <Route path="/register" element={<RegisterView />} />
+
+            {/* ================= VÙNG BẢO MẬT (PROTECTED ROUTES) ================= */}
+            {/* Ép toàn bộ hệ thống MainLayout phải được kiểm tra Token qua ProtectedRoute */}
+            <Route
+                path="/"
+                element={
+                    <ProtectedRoute>
+                        <MainLayout />
+                    </ProtectedRoute>
+                }
+            >
+                {/* Tự động chuyển hướng từ trang chủ vào Dashboard nếu đã đăng nhập hợp lệ */}
+                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route path="dashboard" element={<DashboardView />} />
+                <Route path="transactions" element={<TransactionsView />} />
+
+                {/* Đấu nối trực tiếp vào các File View đã tạo */}
+                <Route path="analytics" element={<AnalyticsView />} />
+                <Route path="budgets" element={<BudgetsView />} />
+
+                {/* Thêm đường dẫn cho UC03: Đổi mật khẩu cá nhân */}
+                <Route path="profile/change-password" element={<ChangePasswordView />} />
+            </Route>
+
+            {/* Bắt lỗi nếu người dùng gõ sai URL hoặc chưa đăng nhập mà đòi truy cập lén */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+    );
 };
 
 export default AppRoutes;
