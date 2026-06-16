@@ -1,216 +1,170 @@
-import { useState } from 'react';
-import { Plus, Trash2, Search, X, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { mockRecentTransactions } from '../../services/mockData';
+import { useState, useEffect } from 'react';
+import { ArrowUpRight, ArrowDownLeft, Plus, Loader2, X, AlertCircle } from 'lucide-react';
+import api from '../../services/api';
 
 const TransactionsView = () => {
-    // 1. State quản lý danh sách giao dịch (để có thể thêm/xóa động)
-    const [transactions, setTransactions] = useState(mockRecentTransactions);
-
-    // 2. State quản lý việc đóng/mở Modal Form thêm mới
+    const [transactions, setTransactions] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // 3. State quản lý tìm kiếm/bộ lọc
-    const [searchTerm, setSearchTerm] = useState('');
-
-    // 4. State quản lý dữ liệu nhập vào từ Form
+    // State quản lý Form nhập liệu giao dịch mới
     const [formData, setFormData] = useState({
-        type: 'expense',
         amount: '',
-        category: 'Ăn uống',
-        date: new Date().toISOString().split('T')[0],
-        note: ''
+        description: '',
+        categoryId: '1', // Mặc định ID danh mục số 1
+        walletId: '1'    // Mặc định ID ví tiền số 1
     });
 
-    // Hàm xử lý thay đổi dữ liệu trong ô nhập
+    // 1. Hàm GET: Tải danh sách giao dịch thật từ cổng /api/transactions của Backend
+    const fetchTransactions = async () => {
+        try {
+            setLoading(true);
+            // Gọi chính xác endpoint: http://localhost:8080/api/transactions
+            const response = await api.get('/transactions');
+            setTransactions(response.data);
+            setError(null);
+        } catch (err) {
+            console.error("Lỗi lấy danh sách giao dịch:", err);
+            setError("Không thể kết nối dữ liệu giao dịch. Hãy kiểm tra server Backend!");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchTransactions();
+    }, []);
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
     };
 
-    // Hàm xử lý Thêm giao dịch mới khi nhấn Submit Form
-    const handleFormSubmit = (e) => {
+    // 2. Hàm POST: Thêm mới một giao dịch dựa trên DTO của Backend
+    const handleFormSubmit = async (e) => {
         e.preventDefault();
-        if (!formData.amount || !formData.note) {
-            alert('Vui lòng điền đầy đủ số tiền và ghi chú!');
-            return;
-        }
+        if (!formData.amount) return alert("Vui lòng nhập số tiền!");
 
-        const newTransaction = {
-            id: `tx-${Date.now()}`, // tạo id duy nhất
-            type: formData.type,
-            amount: Number(formData.amount).toLocaleString('vi-VN'),
-            category: formData.category,
-            date: formData.date,
-            note: formData.note
+        // Đóng gói cấu trúc payload truyền sang cho lớp TransactionRequest DTO nhận diện
+        const transactionRequestPayload = {
+            amount: Number(formData.amount),
+            description: formData.description,
+            walletId: Number(formData.walletId),
+            categoryId: Number(formData.categoryId)
         };
 
-        // Cập nhật lên đầu danh sách giao dịch
-        setTransactions([newTransaction, ...transactions]);
+        try {
+            // Gửi lệnh POST sang đường dẫn http://localhost:8080/api/transactions
+            const response = await api.post('/transactions', transactionRequestPayload);
 
-        // Reset form và đóng modal
-        setFormData({
-            type: 'expense',
-            amount: '',
-            category: 'Ăn uống',
-            date: new Date().toISOString().split('T')[0],
-            note: ''
-        });
-        setIsModalOpen(false);
-    };
+            // Kiểm tra an toàn xem Backend có bắn kèm tin nhắn cảnh báo hạn mức thông minh về không
+            if (response.data && response.data.alertMessage) {
+                alert(`⚠️ CẢNH BÁO HỆ THỐNG: ${response.data.alertMessage}`);
+            }
 
-    // Hàm xử lý Xóa giao dịch
-    const handleDelete = (id) => {
-        if (window.confirm('Bạn có chắc chắn muốn xóa giao dịch này?')) {
-            setTransactions(transactions.filter(tx => tx.id !== id));
+            await fetchTransactions(); // Tải lại danh sách mới để cập nhật bảng dữ liệu
+            setIsModalOpen(false);     // Đóng modal Form nhập liệu
+            setFormData({ amount: '', description: '', categoryId: '1', walletId: '1' }); // Reset form sạch sẽ
+        } catch (err) {
+            console.error("Lỗi khi thêm giao dịch thật:", err);
+            alert("Thêm giao dịch thất bại! Hãy chắc chắn ID ví và ID danh mục đã tồn tại trong MySQL, hoặc kiểm tra lại cấu trúc thuộc tính của TransactionRequest DTO.");
         }
     };
 
-    // Lọc danh sách giao dịch theo từ khóa tìm kiếm (Ghi chú hoặc Danh mục)
-    const filteredTransactions = transactions.filter(tx =>
-        tx.note.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tx.category.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[60vh] space-y-3">
+                <Loader2 className="text-emerald-500 animate-spin" size={40} />
+                <p className="text-slate-500 font-medium text-sm">Đang tải lịch sử giao dịch từ MySQL...</p>
+            </div>
+        );
+    }
 
     return (
-        <div className="p-6 space-y-6 relative">
-            {/* --- TIÊU ĐỀ & NÚT THÊM MỚI --- */}
+        <div className="p-6 space-y-6">
+            {/* HEADER TRANG */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Quản lý giao dịch</h1>
-                    <p className="text-sm text-slate-500 mt-1">Ghi chép và theo dõi các khoản thu chi của bạn.</p>
+                    <h1 className="text-2xl font-bold text-slate-800">Lịch sử giao dịch thật</h1>
+                    <p className="text-sm text-slate-500 mt-1">Dữ liệu thu chi được cập nhật thời gian thực từ MySQL thông qua TransactionController.</p>
                 </div>
                 <button
                     onClick={() => setIsModalOpen(true)}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-semibold rounded-xl shadow-md shadow-emerald-500/10 transition-all"
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl shadow-md transition-all text-sm"
                 >
-                    <Plus size={20} />
-                    Thêm giao dịch
+                    <Plus size={18} />
+                    Ghi chép giao dịch mới
                 </button>
             </div>
 
-            {/* --- THANH TÌM KIẾM --- */}
-            <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2.5 max-w-md shadow-sm">
-                <Search size={18} className="text-slate-400" />
-                <input
-                    type="text"
-                    placeholder="Tìm kiếm theo ghi chú, danh mục..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full text-sm text-slate-700 bg-transparent focus:outline-none"
-                />
-            </div>
-
-            {/* --- BẢNG DANH SÁCH LỊCH SỬ GIAO DỊCH --- */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                        <tr className="bg-slate-50/70 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
-                            <th className="py-4 px-6">Loại</th>
-                            <th className="py-4 px-6">Danh mục</th>
-                            <th className="py-4 px-6">Ghi chú</th>
-                            <th className="py-4 px-6">Ngày</th>
-                            <th className="py-4 px-6 text-right">Số tiền</th>
-                            <th className="py-4 px-6 text-center">Thao tác</th>
-                        </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                        {filteredTransactions.length === 0 ? (
-                            <tr>
-                                <td colSpan="6" className="py-10 text-center text-slate-400 font-medium">
-                                    Không tìm thấy giao dịch nào tương ứng.
-                                </td>
-                            </tr>
-                        ) : (
-                            filteredTransactions.map((tx) => (
-                                <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors group">
-                                    <td className="py-4 px-6">
-                                        {tx.type === 'income' ? (
-                                            <span className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg inline-block">
-                          <ArrowUpRight size={16} />
-                        </span>
-                                        ) : (
-                                            <span className="p-1.5 bg-rose-50 text-rose-600 rounded-lg inline-block">
-                          <ArrowDownRight size={16} />
-                        </span>
-                                        )}
-                                    </td>
-                                    <td className="py-4 px-6">
-                      <span className="font-semibold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-md text-xs">
-                        {tx.category}
-                      </span>
-                                    </td>
-                                    <td className="py-4 px-6 text-slate-600 max-w-[220px] truncate">{tx.note}</td>
-                                    <td className="py-4 px-6 text-slate-400">{tx.date}</td>
-                                    <td className={`py-4 px-6 text-right font-bold text-base ${
-                                        tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'
-                                    }`}>
-                                        {tx.type === 'income' ? '+' : '-'}{tx.amount} đ
-                                    </td>
-                                    <td className="py-4 px-6 text-center">
-                                        <button
-                                            onClick={() => handleDelete(tx.id)}
-                                            className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
-                                            title="Xóa giao dịch"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                        </tbody>
-                    </table>
+            {error && (
+                <div className="p-4 bg-rose-50 border border-rose-100 text-rose-700 text-sm font-medium rounded-xl flex items-center gap-2">
+                    <AlertCircle size={18} /> {error}
                 </div>
-            </div>
+            )}
 
-            {/* --- CỬA SỔ BẬT LÊN (MODAL FORM POP-UP) --- */}
+            {/* DANH SÁCH BẢNG GIAO DỊCH LẤY TỪ DATABASE */}
+            {transactions.length === 0 ? (
+                <div className="text-center p-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400 font-medium text-sm">
+                    Chưa có giao dịch nào được ghi nhận dưới hệ thống. Hãy bấm nút phía trên để tạo giao dịch thật nhé!
+                </div>
+            ) : (
+                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-500">
+                                <th className="p-4">Kiểu</th>
+                                <th className="p-4">Số tiền</th>
+                                <th className="p-4">Danh mục</th>
+                                <th className="p-4">Ghi chú / Mô tả</th>
+                                <th className="p-4">Thời gian</th>
+                            </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
+                            {transactions.map((tx) => {
+                                const isExpense = tx.category?.type === 'EXPENSE';
+                                // Định dạng ngày giờ hiển thị nội địa
+                                const formattedDate = tx.transactionDate ? new Date(tx.transactionDate).toLocaleString('vi-VN') : 'Vừa xong';
+
+                                return (
+                                    <tr key={tx.id} className="hover:bg-slate-50/80 transition-colors">
+                                        <td className="p-4">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+                            isExpense ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'
+                        }`}>
+                          {isExpense ? <ArrowDownLeft size={14} /> : <ArrowUpRight size={14} />}
+                            {isExpense ? 'Khoản Chi' : 'Thu Nhập'}
+                        </span>
+                                        </td>
+                                        <td className={`p-4 font-bold ${isExpense ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                            {isExpense ? '-' : '+'}{tx.amount?.toLocaleString()} đ
+                                        </td>
+                                        <td className="p-4 text-slate-900">{tx.category?.name || `Danh mục #${tx.category?.id}`}</td>
+                                        <td className="p-4 text-slate-500 max-w-xs truncate">{tx.description || '—'}</td>
+                                        <td className="p-4 text-slate-400 text-xs">{formattedDate}</td>
+                                    </tr>
+                                );
+                            })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL FORM GHI CHÉP GIAO DỊCH */}
             {isModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animated fadeIn">
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-md border border-slate-100 overflow-hidden">
-                        {/* Header Modal */}
                         <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                            <h3 className="font-bold text-slate-800 text-lg">Thêm biến động số dư</h3>
-                            <button
-                                onClick={() => setIsModalOpen(false)}
-                                className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors"
-                            >
+                            <h3 className="font-bold text-slate-800 text-lg">Ghi chép giao dịch mới</h3>
+                            <button onClick={() => setIsModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
                                 <X size={20} />
                             </button>
                         </div>
 
-                        {/* Form nội dung */}
                         <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
-                            {/* Chọn Loại Giao Dịch */}
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Loại giao dịch</label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormData({ ...formData, type: 'expense' })}
-                                        className={`py-2.5 rounded-xl font-semibold text-sm border transition-all ${
-                                            formData.type === 'expense'
-                                                ? 'bg-rose-50 border-rose-300 text-rose-700 shadow-sm'
-                                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                                        }`}
-                                    >
-                                        Chi tiêu (-)
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormData({ ...formData, type: 'income' })}
-                                        className={`py-2.5 rounded-xl font-semibold text-sm border transition-all ${
-                                            formData.type === 'income'
-                                                ? 'bg-emerald-50 border-emerald-300 text-emerald-700 shadow-sm'
-                                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                                        }`}
-                                    >
-                                        Thu nhập (+)
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Nhập số tiền */}
                             <div>
                                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Số tiền (đ)</label>
                                 <input
@@ -219,79 +173,63 @@ const TransactionsView = () => {
                                     placeholder="Ví dụ: 50000"
                                     value={formData.amount}
                                     onChange={handleInputChange}
-                                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500 font-semibold"
+                                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-slate-900 font-semibold"
                                     required
                                 />
                             </div>
 
-                            {/* Chọn Danh Mục */}
                             <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Danh mục</label>
-                                <select
-                                    name="category"
-                                    value={formData.category}
+                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Nội dung / Ghi chú</label>
+                                <input
+                                    type="text"
+                                    name="description"
+                                    placeholder="Ví dụ: Ăn trưa với nhóm bạn"
+                                    value={formData.description}
                                     onChange={handleInputChange}
-                                    className="w-full border border-slate-200 bg-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500 font-medium text-slate-700"
+                                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-slate-900"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Chọn danh mục thu chi</label>
+                                <select
+                                    name="categoryId"
+                                    value={formData.categoryId}
+                                    onChange={handleInputChange}
+                                    className="w-full border border-slate-200 bg-white rounded-xl px-4 py-2.5 text-sm focus:outline-none text-slate-700 font-medium"
                                 >
-                                    {formData.type === 'expense' ? (
-                                        <>
-                                            <option value="Ăn uống">Ăn uống</option>
-                                            <option value="Tiền nhà">Tiền nhà</option>
-                                            <option value="Đi lại">Đi lại</option>
-                                            <option value="Học tập">Học tập</option>
-                                            <option value="Giải trí">Giải trí</option>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <option value="Việc làm thêm">Việc làm thêm</option>
-                                            <option value="Được tặng">Được tặng</option>
-                                            <option value="Học bổng">Học bổng</option>
-                                        </>
-                                    )}
+                                    <option value="1">Danh mục số 1 (Ăn uống - CHI)</option>
+                                    <option value="2">Danh mục số 2 (Giải trí - CHI)</option>
+                                    <option value="3">Danh mục số 3 (Lương đi làm - THU)</option>
                                 </select>
                             </div>
 
-                            {/* Chọn Ngày tháng */}
                             <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Ngày thực hiện</label>
-                                <input
-                                    type="date"
-                                    name="date"
-                                    value={formData.date}
+                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Chọn ví thanh toán</label>
+                                <select
+                                    name="walletId"
+                                    value={formData.walletId}
                                     onChange={handleInputChange}
-                                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500 text-slate-600"
-                                    required
-                                />
+                                    className="w-full border border-slate-200 bg-white rounded-xl px-4 py-2.5 text-sm focus:outline-none text-slate-700 font-medium"
+                                >
+                                    <option value="1">Ví chính (Tiền mặt)</option>
+                                    <option value="2">Tài khoản ngân hàng</option>
+                                </select>
                             </div>
 
-                            {/* Nhập Ghi chú */}
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Ghi chú / Mô tả</label>
-                                <textarea
-                                    name="note"
-                                    placeholder="Nhập nội dung chi tiết..."
-                                    value={formData.note}
-                                    onChange={handleInputChange}
-                                    rows="2"
-                                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500 text-slate-700 placeholder:text-slate-400"
-                                    required
-                                />
-                            </div>
-
-                            {/* Nút hành động */}
                             <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-100 mt-5">
                                 <button
                                     type="button"
                                     onClick={() => setIsModalOpen(false)}
-                                    className="px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+                                    className="px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 rounded-xl"
                                 >
                                     Hủy bỏ
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-5 py-2 text-sm font-bold bg-slate-900 text-white hover:bg-slate-800 rounded-xl shadow-sm transition-colors"
+                                    className="px-5 py-2 text-sm font-bold bg-slate-900 text-white hover:bg-slate-800 rounded-xl shadow-sm"
                                 >
-                                    Lưu giao dịch
+                                    Ghi sổ giao dịch
                                 </button>
                             </div>
                         </form>
