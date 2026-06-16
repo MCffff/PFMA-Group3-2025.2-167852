@@ -1,5 +1,6 @@
 package com.hust.pfma.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDate;
@@ -7,6 +8,7 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "budgets")
 @Data
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Budget {
 
     @Id
