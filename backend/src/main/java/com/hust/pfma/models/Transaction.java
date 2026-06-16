@@ -1,5 +1,6 @@
 package com.hust.pfma.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -23,13 +24,15 @@ public class Transaction {
     private LocalDateTime transactionDate = LocalDateTime.now();
 
     // Mối quan hệ: Nhiều giao dịch thuộc về 1 Ví tiền
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wallet_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "user"})
     private Wallet wallet;
 
     // Mối quan hệ: Nhiều giao dịch thuộc về 1 Danh mục thu chi
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Category category;
 
     // Dòng tin nhắn cảnh báo

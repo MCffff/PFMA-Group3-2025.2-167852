@@ -20,14 +20,16 @@ const TransactionsView = () => {
 
     // 1. Hàm GET: Tải danh sách giao dịch RIÊNG BIỆT của tài khoản đăng nhập
     const fetchTransactions = async () => {
-        if (!currentUserId) {
-            setError("Không tìm thấy phiên đăng nhập. Vui lòng đăng nhập lại!");
+        // SỬA TẠI ĐÂY: Chặn cả trường hợp null, rỗng, hoặc chuỗi "undefined"
+        if (!currentUserId || currentUserId === 'undefined' || currentUserId === 'null') {
+            setError("Không tìm thấy phiên đăng nhập hợp lệ. Vui lòng đăng nhập lại!");
             setLoading(false);
             return;
         }
+
         try {
             setLoading(true);
-            // Gọi chính xác cổng API lọc theo User ID
+            // Lúc này chắc chắn currentUserId là một số hợp lệ (ví dụ: 1, 2...)
             const response = await api.get(`/transactions/user/${currentUserId}`);
             setTransactions(response.data);
             setError(null);
@@ -40,7 +42,17 @@ const TransactionsView = () => {
     };
 
     useEffect(() => {
-        fetchTransactions();
+        // chỉ kích hoạt gọi API khi userId thực sự hợp lệ
+        if (currentUserId && currentUserId !== 'undefined' && currentUserId !== 'null') {
+            const timer = setTimeout(() => {
+                fetchTransactions();
+            }, 0);
+
+            return () => clearTimeout(timer);
+        } else {
+            // Nếu không có user hợp lệ, tắt trạng thái loading để tránh quay vô hạn
+            setLoading(false);
+        }
     }, [currentUserId]);
 
     const handleInputChange = (e) => {

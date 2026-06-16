@@ -34,6 +34,7 @@ public class Budget {
     // Mối quan hệ: Một ngân sách bắt buộc phải thuộc về một Người dùng (User) cụ thể
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private User user;
 
     // Mối quan hệ: Một ngân sách được áp dụng cho một Danh mục (Category) cụ thể (Ví dụ: Ăn uống, Giải trí)

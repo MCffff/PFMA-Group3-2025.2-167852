@@ -38,8 +38,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
      * UC11: Lấy danh sách giao dịch chi tiêu trong 30 ngày gần nhất để tính toán dự báo.
      */
     @Query("SELECT t FROM Transaction t " +
-            "WHERE t.wallet.user.id = :userId " +
-            "AND t.transactionDate >= java.time.LocalDate.now().minusDays(30) " +
+            "WHERE t.wallet.user.id = :userId AND t.transactionDate >= :startDate " +
             "ORDER BY t.transactionDate ASC")
-    List<Transaction> findLast30DaysExpenses(@Param("userId") Long userId);
+    List<Transaction> findLast30DaysExpenses(@Param("userId") Long userId,
+                                             @Param("startDate") java.time.LocalDate startDate);
 }

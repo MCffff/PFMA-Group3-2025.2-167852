@@ -19,10 +19,18 @@ public class TransactionController {
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Transaction>> getTransactionsByUserId(@PathVariable Long userId) {
-        // Gọi hàm truy vấn động đã viết trong TransactionRepository
-        List<Transaction> transactions = transactionService.getTransactionsByUserId(userId);
-        return ResponseEntity.ok(transactions);
+    public ResponseEntity<?> getTransactionsByUserId(@PathVariable Long userId) {
+        try {
+            // Thử chạy lệnh lấy dữ liệu từ Service
+            List<Transaction> transactions = transactionService.getTransactionsByUserId(userId);
+            return ResponseEntity.ok(transactions);
+        } catch (Exception e) {
+            // LỆNH QUAN TRỌNG: Ép IntelliJ phải in sạch dòng lỗi gốc ra tab Console
+            e.printStackTrace();
+
+            // Trả về tin nhắn lỗi cụ thể cho Frontend nhìn thấy
+            return ResponseEntity.internalServerError().body("Lỗi Backend chi tiết: " + e.getMessage());
+        }
     }
 
     /**
