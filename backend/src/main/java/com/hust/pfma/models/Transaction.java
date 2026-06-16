@@ -31,4 +31,8 @@ public class Transaction {
     @ManyToOne
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
+
+    // Dòng tin nhắn cảnh báo
+    @Transient
+    private String alertMessage;
 }
