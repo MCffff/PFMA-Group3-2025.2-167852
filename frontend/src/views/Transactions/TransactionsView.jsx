@@ -1,3 +1,4 @@
+// src/views/Transactions/TransactionsView.jsx
 import { useState, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownLeft, Plus, Loader2, X, AlertCircle } from 'lucide-react';
 import api from '../../services/api';
@@ -8,6 +9,9 @@ const TransactionsView = () => {
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
+    // Đọc động ID của tài khoản đang đăng nhập từ sessionStorage
+    const currentUserId = sessionStorage.getItem('userId');
+
     // State quản lý Form nhập liệu giao dịch mới
     const [formData, setFormData] = useState({
         amount: '',
@@ -16,12 +20,17 @@ const TransactionsView = () => {
         walletId: '1'    // Mặc định ID ví tiền số 1
     });
 
-    // 1. Hàm GET: Tải danh sách giao dịch thật từ cổng /api/transactions của Backend
+    // 1. Hàm GET: Tải danh sách giao dịch RIÊNG BIỆT của tài khoản đăng nhập
     const fetchTransactions = async () => {
+        if (!currentUserId) {
+            setError("Không tìm thấy phiên đăng nhập. Vui lòng đăng nhập lại!");
+            setLoading(false);
+            return;
+        }
         try {
             setLoading(true);
-            // Gọi chính xác endpoint: http://localhost:8080/api/transactions
-            const response = await api.get('/transactions');
+            // Gọi chính xác cổng API lọc theo User ID vừa nâng cấp ở Backend
+            const response = await api.get(`/transactions/user/${currentUserId}`);
             setTransactions(response.data);
             setError(null);
         } catch (err) {
@@ -34,14 +43,14 @@ const TransactionsView = () => {
 
     useEffect(() => {
         fetchTransactions();
-    }, []);
+    }, [currentUserId]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
     };
 
-    // 2. Hàm POST: Thêm mới một giao dịch dựa trên DTO của Backend
+    // 2. Hàm POST: Thêm mới một giao dịch gắn liền với tài khoản đang đăng nhập
     const handleFormSubmit = async (e) => {
         e.preventDefault();
         if (!formData.amount) return alert("Vui lòng nhập số tiền!");
@@ -51,14 +60,15 @@ const TransactionsView = () => {
             amount: Number(formData.amount),
             description: formData.description,
             walletId: Number(formData.walletId),
-            categoryId: Number(formData.categoryId)
+            categoryId: Number(formData.categoryId),
+            userId: Number(currentUserId) // Bổ sung trường userId vào Payload để Backend biết giao dịch này của ai
         };
 
         try {
             // Gửi lệnh POST sang đường dẫn http://localhost:8080/api/transactions
             const response = await api.post('/transactions', transactionRequestPayload);
 
-            // Kiểm tra an toàn xem Backend có bắn kèm tin nhắn cảnh báo hạn mức thông minh về không
+            // [UC10] Kiểm tra an toàn xem Backend có bắn kèm tin nhắn cảnh báo hạn mức thông minh về không
             if (response.data && response.data.alertMessage) {
                 alert(`⚠️ CẢNH BÁO HỆ THỐNG: ${response.data.alertMessage}`);
             }
@@ -87,7 +97,7 @@ const TransactionsView = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800">Lịch sử giao dịch thật</h1>
-                    <p className="text-sm text-slate-500 mt-1">Dữ liệu thu chi được cập nhật thời gian thực từ MySQL thông qua TransactionController.</p>
+                    <p className="text-sm text-slate-500 mt-1">Dữ liệu thu chi được cập nhật thời gian thực theo từng tài khoản riêng biệt.</p>
                 </div>
                 <button
                     onClick={() => setIsModalOpen(true)}
@@ -107,7 +117,7 @@ const TransactionsView = () => {
             {/* DANH SÁCH BẢNG GIAO DỊCH LẤY TỪ DATABASE */}
             {transactions.length === 0 ? (
                 <div className="text-center p-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400 font-medium text-sm">
-                    Chưa có giao dịch nào được ghi nhận dưới hệ thống. Hãy bấm nút phía trên để tạo giao dịch thật nhé!
+                    Chưa có giao dịch nào được ghi nhận cho tài khoản này. Hãy bấm nút phía trên để tạo giao dịch thật nhé!
                 </div>
             ) : (
                 <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
@@ -125,18 +135,17 @@ const TransactionsView = () => {
                             <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
                             {transactions.map((tx) => {
                                 const isExpense = tx.category?.type === 'EXPENSE';
-                                // Định dạng ngày giờ hiển thị nội địa
                                 const formattedDate = tx.transactionDate ? new Date(tx.transactionDate).toLocaleString('vi-VN') : 'Vừa xong';
 
                                 return (
                                     <tr key={tx.id} className="hover:bg-slate-50/80 transition-colors">
                                         <td className="p-4">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
-                            isExpense ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'
-                        }`}>
-                          {isExpense ? <ArrowDownLeft size={14} /> : <ArrowUpRight size={14} />}
-                            {isExpense ? 'Khoản Chi' : 'Thu Nhập'}
-                        </span>
+                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+                                                isExpense ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'
+                                            }`}>
+                                              {isExpense ? <ArrowDownLeft size={14} /> : <ArrowUpRight size={14} />}
+                                                {isExpense ? 'Khoản Chi' : 'Thu Nhập'}
+                                            </span>
                                         </td>
                                         <td className={`p-4 font-bold ${isExpense ? 'text-rose-600' : 'text-emerald-600'}`}>
                                             {isExpense ? '-' : '+'}{tx.amount?.toLocaleString()} đ
