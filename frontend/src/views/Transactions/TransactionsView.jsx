@@ -1,4 +1,3 @@
-// src/views/Transactions/TransactionsView.jsx
 import { useState, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownLeft, Plus, Loader2, X, AlertCircle } from 'lucide-react';
 import api from '../../services/api';
