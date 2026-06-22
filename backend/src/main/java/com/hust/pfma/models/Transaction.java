@@ -35,6 +35,11 @@ public class Transaction {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Category category;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password"}) // Giấu password khi trả dữ liệu về Client
+    private User user;
+
     // Dòng tin nhắn cảnh báo
     @Transient
     private String alertMessage;

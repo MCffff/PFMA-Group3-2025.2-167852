@@ -8,4 +8,5 @@ public class TransactionRequest {
     private String description;
     private Long walletId;
     private Long categoryId;
+    private long userId;
 }
