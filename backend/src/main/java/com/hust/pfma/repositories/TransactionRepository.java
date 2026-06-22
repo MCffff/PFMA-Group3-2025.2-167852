@@ -13,7 +13,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     /**
      * UC05 & UC07: Lấy toàn bộ lịch sử giao dịch của một người dùng cụ thể.
      */
-    @Query("SELECT t FROM Transaction t WHERE t.wallet.user.id = :userId ORDER BY t.transactionDate DESC")
+    @Query("SELECT t FROM Transaction t WHERE t.user.id = :userId ORDER BY t.transactionDate DESC")
     List<Transaction> findByUserId(@Param("userId") Long userId);
 
     /**
@@ -21,7 +21,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
      */
     @Query("SELECT t.category.name, SUM(t.amount) " +
             "FROM Transaction t " +
-            "WHERE t.wallet.user.id = :userId AND t.category.type = 'EXPENSE' " +
+            "WHERE t.user.id = :userId AND t.category.type = 'EXPENSE' " +
             "GROUP BY t.category.name")
     List<Object[]> sumExpenseByCategory(@Param("userId") Long userId);
 
@@ -30,7 +30,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
      */
     @Query("SELECT MONTH(t.transactionDate), t.category.type, SUM(t.amount) " +
             "FROM Transaction t " +
-            "WHERE t.wallet.user.id = :userId " +
+            "WHERE t.user.id = :userId " +
             "GROUP BY MONTH(t.transactionDate), t.category.type")
     List<Object[]> getMonthlyReport(@Param("userId") Long userId);
 
@@ -38,7 +38,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
      * UC11: Lấy danh sách giao dịch chi tiêu trong 30 ngày gần nhất để tính toán dự báo.
      */
     @Query("SELECT t FROM Transaction t " +
-            "WHERE t.wallet.user.id = :userId AND t.transactionDate >= :startDate " +
+            "WHERE t.user.id = :userId AND t.transactionDate >= :startDate " +
             "ORDER BY t.transactionDate ASC")
     List<Transaction> findLast30DaysExpenses(@Param("userId") Long userId,
                                              @Param("startDate") java.time.LocalDate startDate);

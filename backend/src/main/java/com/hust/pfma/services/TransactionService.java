@@ -43,6 +43,13 @@ public class TransactionService {
         transaction.setDescription(request.getDescription());
         transaction.setWallet(wallet);
         transaction.setCategory(category);
+
+        // Lấy đích danh userId từ request
+        // Thay vì lấy gián tiếp qua wallet.getUser() để tránh lệch pha chủ sở hữu ví.
+        User currentUser = new User();
+        currentUser.setId(request.getUserId());
+        transaction.setUser(currentUser);
+
         transaction.setTransactionDate(java.time.LocalDateTime.now()); // Tự động lấy ngày giờ nạp giao dịch
 
         // 3. Thay đổi số dư ví tiền
@@ -53,19 +60,23 @@ public class TransactionService {
             LocalDate today = LocalDate.now();
             Optional<Budget> budgetOpt = budgetRepository
                     .findByUserIdAndCategoryIdAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
-                            wallet.getUser().getId(), category.getId(), today, today
+                            request.getUserId(), category.getId(), today, today // ĐỒNG BỘ: Dùng request.getUserId() luôn cho chuẩn bài ngân sách
                     );
 
             // B. Nếu tìm thấy Ngân sách, tiến hành cộng dồn tiền đã tiêu và kiểm tra hạn mức
             if (budgetOpt.isPresent()) {
                 Budget budget = budgetOpt.get();
 
+                // Phòng thủ: Nếu spent hoặc amount dính lỗi null dưới DB thì gán bằng 0 để tránh sập NullPointerException
+                double currentSpent = budget.getSpent() != null ? budget.getSpent() : 0.0;
+                double budgetAmount = budget.getAmount() != null ? budget.getAmount() : 1.0;
+
                 // Cộng dồn số tiền vừa tiêu vào ngân sách
-                budget.setSpent(budget.getSpent() + request.getAmount());
+                budget.setSpent(currentSpent + request.getAmount());
                 budgetRepository.save(budget); // Lưu số tiền đã tiêu mới vào MySQL
 
                 // C. Tính phần trăm để bắn Cảnh báo
-                double percentage = (budget.getSpent() / budget.getAmount()) * 100;
+                double percentage = (budget.getSpent() / budgetAmount) * 100;
 
                 if (percentage >= 100) {
                     transaction.setAlertMessage("DANGER: Bạn đã tiêu quá 100% hạn mức của danh mục '" + category.getName() + "' tháng này!");
@@ -73,7 +84,6 @@ public class TransactionService {
                     transaction.setAlertMessage("WARNING: Bạn đã chi tiêu vượt quá 80% hạn mức của danh mục '" + category.getName() + "' tháng này!");
                 }
             }
-            // ===================================================================
 
         } else if ("INCOME".equalsIgnoreCase(category.getType())) {
             wallet.setBalance(wallet.getBalance() + request.getAmount());
@@ -85,7 +95,6 @@ public class TransactionService {
     }
 
     public List<Transaction> getTransactionsByUserId(Long userId) {
-        // Hãy chắc chắn rằng tên hàm này viết hoa chữ B, U, I chính xác
         return transactionRepository.findByUserId(userId);
     }
 }

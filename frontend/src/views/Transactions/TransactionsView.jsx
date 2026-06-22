@@ -1,97 +1,117 @@
+// src/views/Transactions/TransactionsView.jsx
 import { useState, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownLeft, Plus, Loader2, X, AlertCircle } from 'lucide-react';
 import api from '../../services/api';
 
 const TransactionsView = () => {
+    // ============================================================================
+    // 1. QUẢN LÝ STATE & PHÒNG THỦ DỮ LIỆU ĐA TẦNG
+    // ============================================================================
     const [transactions, setTransactions] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [hasFetched, setHasFetched] = useState(false);
 
-    const currentUserId = sessionStorage.getItem('userId');
+    const currentUserId = sessionStorage.getItem('userId') || sessionStorage.getItem('id');
+    const hasValidUser = currentUserId && currentUserId !== 'undefined' && currentUserId !== 'null';
 
-    // State quản lý Form nhập liệu giao dịch mới
+    const loading = hasValidUser && !hasFetched;
+
     const [formData, setFormData] = useState({
         amount: '',
         description: '',
-        categoryId: '1', // Mặc định ID danh mục số 1
-        walletId: '1'    // Mặc định ID ví tiền số 1
+        categoryId: '1',
+        walletId: '1'
     });
 
-    // 1. Hàm GET: Tải danh sách giao dịch RIÊNG BIỆT của tài khoản đăng nhập
-    const fetchTransactions = async () => {
-        // SỬA TẠI ĐÂY: Chặn cả trường hợp null, rỗng, hoặc chuỗi "undefined"
-        if (!currentUserId || currentUserId === 'undefined' || currentUserId === 'null') {
+    // ============================================================================
+    // 2. EFFECT TỰ ĐỘNG TẢI LỊCH SỬ GIAO DỊCH (ĐÃ XÓA CHỮ /api THỪA)
+    // ============================================================================
+    useEffect(() => {
+        if (!hasValidUser) {
             setError("Không tìm thấy phiên đăng nhập hợp lệ. Vui lòng đăng nhập lại!");
-            setLoading(false);
             return;
         }
 
+        const loadDataFromServer = async () => {
+            try {
+                const response = await api.get(`/transactions/user/${currentUserId}`);
+                setTransactions(Array.isArray(response.data) ? response.data : []);
+                setError(null);
+            } catch (err) {
+                console.error("Lỗi lấy danh sách giao dịch:", err);
+                setError("Không thể kết nối dữ liệu giao dịch. Hãy kiểm tra server Backend!");
+            } finally {
+                setHasFetched(true);
+            }
+        };
+
+        const timer = setTimeout(() => {
+            loadDataFromServer();
+        }, 0);
+
+        return () => clearTimeout(timer);
+    }, [currentUserId, hasValidUser]);
+
+    // Hàm phụ nạp lại dữ liệu sau khi submit form thành công (ĐÃ XÓA CHỮ /api THỪA)
+    const fetchTransactions = async () => {
+        if (!hasValidUser) return;
         try {
-            setLoading(true);
-            // Lúc này chắc chắn currentUserId là một số hợp lệ (ví dụ: 1, 2...)
             const response = await api.get(`/transactions/user/${currentUserId}`);
-            setTransactions(response.data);
+            setTransactions(Array.isArray(response.data) ? response.data : []);
             setError(null);
         } catch (err) {
-            console.error("Lỗi lấy danh sách giao dịch:", err);
-            setError("Không thể kết nối dữ liệu giao dịch. Hãy kiểm tra server Backend!");
-        } finally {
-            setLoading(false);
+            console.error("Lỗi cập nhật lại giao dịch:", err);
         }
     };
-
-    useEffect(() => {
-        // chỉ kích hoạt gọi API khi userId thực sự hợp lệ
-        if (currentUserId && currentUserId !== 'undefined' && currentUserId !== 'null') {
-            const timer = setTimeout(() => {
-                fetchTransactions();
-            }, 0);
-
-            return () => clearTimeout(timer);
-        } else {
-            // Nếu không có user hợp lệ, tắt trạng thái loading để tránh quay vô hạn
-            setLoading(false);
-        }
-    }, [currentUserId]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
     };
 
-    // 2. Hàm POST: Thêm mới một giao dịch gắn liền với tài khoản đang đăng nhập
+    // ============================================================================
+    // 3. HÀM GỬI FORM (ĐÃ XÓA CHỮ /api THỪA Ở LỆNH POST)
+    // ============================================================================
     const handleFormSubmit = async (e) => {
         e.preventDefault();
         if (!formData.amount) return alert("Vui lòng nhập số tiền!");
 
-        // Đóng gói cấu trúc payload truyền sang cho lớp TransactionRequest DTO nhận diện
+        const rawAmount = formData.amount.toString().replace(/\D/g, '');
+
         const transactionRequestPayload = {
-            amount: Number(formData.amount),
+            amount: Number(rawAmount),
             description: formData.description,
             walletId: Number(formData.walletId),
             categoryId: Number(formData.categoryId),
-            userId: Number(currentUserId) // Bổ sung trường userId vào Payload để Backend biết giao dịch này của ai
+            userId: Number(currentUserId)
         };
 
         try {
-            // Gửi lệnh POST sang đường dẫn http://localhost:8080/api/transactions
             const response = await api.post('/transactions', transactionRequestPayload);
 
-            // [UC10] Kiểm tra an toàn xem Backend có bắn kèm tin nhắn cảnh báo hạn mức thông minh về không
             if (response.data && response.data.alertMessage) {
                 alert(`⚠️ CẢNH BÁO HỆ THỐNG: ${response.data.alertMessage}`);
+            } else {
+                alert("🎉 Ghi sổ giao dịch thành công!");
             }
 
-            await fetchTransactions(); // Tải lại danh sách mới để cập nhật bảng dữ liệu
-            setIsModalOpen(false);     // Đóng modal Form nhập liệu
-            setFormData({ amount: '', description: '', categoryId: '1', walletId: '1' }); // Reset form sạch sẽ
+            await fetchTransactions();
+            setIsModalOpen(false);
+            setFormData({ amount: '', description: '', categoryId: '1', walletId: '1' });
         } catch (err) {
             console.error("Lỗi khi thêm giao dịch thật:", err);
-            alert("Thêm giao dịch thất bại! Hãy chắc chắn ID ví và ID danh mục đã tồn tại trong MySQL, hoặc kiểm tra lại cấu trúc thuộc tính của TransactionRequest DTO.");
+            if (err.response && err.response.data) {
+                alert(`❌ THẤT BẠI TỪ BACKEND: ${err.response.data}`);
+            } else {
+                alert("Thêm giao dịch thất bại! Hãy kiểm tra lại kết nối server mạng.");
+            }
         }
     };
 
+    // ============================================================================
+    // 4. LUỒNG ĐỔ GIAO DIỆN (RENDER)
+    // ============================================================================
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh] space-y-3">
@@ -103,7 +123,6 @@ const TransactionsView = () => {
 
     return (
         <div className="p-6 space-y-6">
-            {/* HEADER TRANG */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800">Lịch sử giao dịch thật</h1>
@@ -124,8 +143,7 @@ const TransactionsView = () => {
                 </div>
             )}
 
-            {/* DANH SÁCH BẢNG GIAO DỊCH LẤY TỪ DATABASE */}
-            {transactions.length === 0 ? (
+            {!loading && transactions.length === 0 ? (
                 <div className="text-center p-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400 font-medium text-sm">
                     Chưa có giao dịch nào được ghi nhận cho tài khoản này. Hãy bấm nút phía trên để tạo giao dịch thật nhé!
                 </div>
@@ -143,12 +161,13 @@ const TransactionsView = () => {
                             </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
-                            {transactions.map((tx) => {
+                            {transactions.map((tx, index) => {
+                                if (!tx) return null;
                                 const isExpense = tx.category?.type === 'EXPENSE';
                                 const formattedDate = tx.transactionDate ? new Date(tx.transactionDate).toLocaleString('vi-VN') : 'Vừa xong';
 
                                 return (
-                                    <tr key={tx.id} className="hover:bg-slate-50/80 transition-colors">
+                                    <tr key={tx.id || index} className="hover:bg-slate-50/80 transition-colors">
                                         <td className="p-4">
                                             <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
                                                 isExpense ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'
@@ -158,9 +177,9 @@ const TransactionsView = () => {
                                             </span>
                                         </td>
                                         <td className={`p-4 font-bold ${isExpense ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                            {isExpense ? '-' : '+'}{tx.amount?.toLocaleString()} đ
+                                            {isExpense ? '-' : '+'}{(tx.amount || 0).toLocaleString()} đ
                                         </td>
-                                        <td className="p-4 text-slate-900">{tx.category?.name || `Danh mục #${tx.category?.id}`}</td>
+                                        <td className="p-4 text-slate-900">{tx.category?.name || `Danh mục #${tx.category?.id || ''}`}</td>
                                         <td className="p-4 text-slate-500 max-w-xs truncate">{tx.description || '—'}</td>
                                         <td className="p-4 text-slate-400 text-xs">{formattedDate}</td>
                                     </tr>
@@ -172,7 +191,6 @@ const TransactionsView = () => {
                 </div>
             )}
 
-            {/* MODAL FORM GHI CHÉP GIAO DỊCH */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-md border border-slate-100 overflow-hidden">

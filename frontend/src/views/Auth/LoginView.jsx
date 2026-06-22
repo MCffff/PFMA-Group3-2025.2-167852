@@ -17,11 +17,13 @@ const LoginView = () => {
 
         try {
             const response = await api.post('/auth/login', { username, password });
-            const { token, userId, username: resUsername } = response.data;
+
+            // Hứng trường 'id' từ Backend trả về (Tránh bị undefined)
+            const { token, id, username: resUsername } = response.data;
 
             // LƯU BẰNG SESSIONSTORAGE
             sessionStorage.setItem('token', token);
-            sessionStorage.setItem('userId', userId);
+            sessionStorage.setItem('userId', id);
             sessionStorage.setItem('username', resUsername);
 
             navigate('/dashboard');
@@ -68,7 +70,6 @@ const LoginView = () => {
                             placeholder="••••••••"
                             required
                         />
-                        {/* INLINE ERROR TEXT KÍCH HOẠT KHI DÍNH NGOẠI LỆ 401 */}
                         {inlineError && (
                             <p className="text-xs text-rose-600 font-medium mt-1.5 bg-rose-50 p-2 rounded-lg border border-rose-100">
                                 {inlineError}
@@ -85,7 +86,6 @@ const LoginView = () => {
                     </button>
                 </form>
 
-                {/* ================= BỔ SUNG ĐƯỜNG DẪN ĐIỀU HƯỚNG SANG ĐĂNG KÝ (UC02) ================= */}
                 <div className="text-center pt-2 border-t border-slate-100 text-sm text-slate-500">
                     Chưa có tài khoản hệ thống?{' '}
                     <Link to="/register" className="text-indigo-600 hover:text-indigo-500 font-bold transition-colors">
