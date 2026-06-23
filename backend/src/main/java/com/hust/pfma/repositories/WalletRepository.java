@@ -8,4 +8,7 @@ import java.util.List;
 @Repository
 public interface WalletRepository extends JpaRepository<Wallet, Long> {
     List<Wallet> findByUserId(Long userId);
+
+    // Kiểm tra xem user đó đã có cái ví nào trùng tên chưa
+    boolean existsByUserIdAndWalletName(Long userId, String walletName);
 }

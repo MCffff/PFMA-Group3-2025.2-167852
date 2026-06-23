@@ -1,19 +1,21 @@
 package com.hust.pfma.controllers;
 
+import com.hust.pfma.dtos.WalletRequest;
 import com.hust.pfma.models.Wallet;
 import com.hust.pfma.services.WalletService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.Map; // Dùng Map để cấu trúc JSON Object đồng bộ cho Front-end
 
 @RestController
 @RequestMapping("/api/wallets")
-@CrossOrigin(origins = "http://localhost:5173") 
+@CrossOrigin(origins = "http://localhost:5173")
 public class WalletController {
 
     private final WalletService walletService;
 
-    // CHUẨN KIẾN TRÚC: Chỉ nạp duy nhất WalletService vào đây để quản lý điều hướng
+    // CHUẨN KIẾN TRÚC: Constructor Injection gọn gàng, sạch sẽ
     public WalletController(WalletService walletService) {
         this.walletService = walletService;
     }
@@ -23,20 +25,28 @@ public class WalletController {
      */
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<Wallet>> getWalletsByUserId(@PathVariable Long userId) {
-        List<Wallet> wallets = walletService.findWalletsByUserId(userId);
+        // Đồng bộ gọi findWalletsByUserId hoặc getWalletsByUserId tùy tên hàm trong Service của ông
+        List<Wallet> wallets = walletService.getWalletsByUserId(userId);
         return ResponseEntity.ok(wallets);
     }
 
     /**
-     * 2. TẠO VÍ MỚI VÀ GẮN CHẶT VÀO TÀI KHOẢN SỞ HỮU
+     * 2. LUỒNG CHÍNH UC04: TẠO VÍ MỚI
      */
-    @PostMapping("/user/{userId}")
-    public ResponseEntity<?> createWallet(@PathVariable Long userId, @RequestBody Wallet wallet) {
+    @PostMapping
+    public ResponseEntity<?> createWallet(@RequestBody WalletRequest request) {
         try {
-            Wallet savedWallet = walletService.createWallet(userId, wallet);
-            return ResponseEntity.ok(savedWallet);
+            Wallet savedWallet = walletService.createWallet(request);
+            return ResponseEntity.ok(Map.of(
+                    "status", "success",
+                    "message", "Thêm ví thành công!",
+                    "data", savedWallet
+            ));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "status", "error",
+                    "message", e.getMessage()
+            ));
         }
     }
 
@@ -44,13 +54,19 @@ public class WalletController {
      * 3. UC04: CHỈNH SỬA THÔNG TIN VÍ TIỀN
      */
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateWallet(@PathVariable Long id, @RequestBody Wallet walletDetails) {
+    public ResponseEntity<?> updateWallet(@PathVariable Long id, @RequestBody WalletRequest request) {
         try {
-            // Tạm thời gọi trực tiếp qua service (Bạn bổ sung hàm này trong WalletService nếu cần, hoặc xử lý nhanh)
-            Wallet updatedWallet = walletService.updateWallet(id, walletDetails);
-            return ResponseEntity.ok(updatedWallet);
+            Wallet updatedWallet = walletService.updateWallet(id, request);
+            return ResponseEntity.ok(Map.of(
+                    "status", "success",
+                    "message", "Cập nhật ví thành công!",
+                    "data", updatedWallet
+            ));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "status", "error",
+                    "message", e.getMessage()
+            ));
         }
     }
 
@@ -61,9 +77,15 @@ public class WalletController {
     public ResponseEntity<?> deleteWallet(@PathVariable Long id) {
         try {
             walletService.deleteWallet(id);
-            return ResponseEntity.ok("Xóa ví thành công và hệ thống đã cập nhật lại tổng số dư!");
+            return ResponseEntity.ok(Map.of(
+                    "status", "success",
+                    "message", "Xóa ví thành công và hệ thống đã cập nhật lại tổng số dư!"
+            ));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "status", "error",
+                    "message", e.getMessage()
+            ));
         }
     }
 }

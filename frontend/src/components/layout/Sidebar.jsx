@@ -6,6 +6,7 @@ const Sidebar = () => {
     const menuItems = [
         { path: '/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
         { path: '/transactions', name: 'Giao dịch', icon: <ArrowLeftRight size={20} /> },
+        { path: '/wallets', name: 'Nguồn tiền & Ví', icon: <Wallet size={20} /> },
         { path: '/analytics', name: 'Báo cáo & Phân tích', icon: <PieChart size={20} /> },
         { path: '/budgets', name: 'Hạn mức chi tiêu', icon: <Wallet size={20} /> },
     ];
