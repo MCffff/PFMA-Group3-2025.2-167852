@@ -10,18 +10,29 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/transactions")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 public class TransactionController {
 
     @Autowired private TransactionService transactionService;
 
-    // API lấy toàn bộ danh mục ứng với user
+    // 1. API lấy toàn bộ danh mục ứng với user (Dùng cho dropdown trang giao dịch)
     @GetMapping("/categories/{userId}")
     public ResponseEntity<?> getCategories(@PathVariable Long userId) {
         return ResponseEntity.ok(transactionService.getCategories(userId));
     }
 
-    // API Luồng phụ: Thêm nhanh danh mục
+    // API lấy lịch sử giao dịch ứng với user
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<?> getTransactionHistory(@PathVariable Long userId) {
+        try {
+            // Gọi xuống service bốc danh sách lịch sử lên
+            return ResponseEntity.ok(transactionService.getTransactionHistoryByUserId(userId));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("status", "error", "message", e.getMessage()));
+        }
+    }
+
+    // 3. API Luồng phụ: Thêm nhanh danh mục
     @PostMapping("/categories")
     public ResponseEntity<?> createCategoryQuick(@RequestBody CategoryRequest request) {
         try {
@@ -35,7 +46,7 @@ public class TransactionController {
         }
     }
 
-    // API Luồng chính: Thêm giao dịch mới
+    // 4. API Luồng chính: Thêm giao dịch mới
     @PostMapping
     public ResponseEntity<?> createTransaction(@RequestBody TransactionRequest request) {
         try {

@@ -56,13 +56,46 @@ export const deleteWallet = (walletId) =>
 
 // ==================== UC05: QUẢN LÝ GIAO DỊCH & DANH MỤC ====================
 
-// 1. Lấy danh sách danh mục theo Id người dùng (GET)
-export const getCategoriesByUserId = (userId) => api.get(`/transactions/categories/${userId}`);
+// 1. Lấy danh mục cho dropdown trang Giao dịch
+export const getCategoriesByUserId = (userId) =>
+    axios.get(`http://localhost:8080/api/transactions/categories/${userId}`);
 
-// 2. Thêm nhanh danh mục mới (POST)
-export const createCategory = (categoryData) => api.post('/transactions/categories', categoryData);
+// 2. Lấy lịch sử giao dịch đổ vào bảng
+export const getTransactionsByUserId = (userId) =>
+    axios.get(`http://localhost:8080/api/transactions/user/${userId}`);
 
-// 3. Khởi tạo giao dịch mới (POST) - Tự động cộng/trừ số dư ví dưới DB
-export const createTransaction = (transactionData) => api.post('/transactions', transactionData);
+// 3. Thêm nhanh danh mục
+export const createCategory = (categoryData) =>
+    axios.post('http://localhost:8080/api/transactions/categories', categoryData);
+
+// 4. Tạo giao dịch mới
+export const createTransaction = (transactionData) =>
+    axios.post('http://localhost:8080/api/transactions', transactionData);
+
+// ==================== UC06: QUẢN LÝ DANH MỤC (CATEGORIES) ====================
+
+/**
+ * 1. Lấy toàn bộ danh mục hiển thị lên bảng quản lý (Hệ thống + Tự tạo)
+ */
+export const getCategoriesManagement = (userId) =>
+    axios.get(`http://localhost:8080/api/categories/user/${userId}`);
+
+/**
+ * 2. Thêm danh mục mới tự chọn tại trang Quản lý danh mục
+ */
+export const createCategoryManagement = (categoryData) =>
+    axios.post('http://localhost:8080/api/categories', categoryData);
+
+/**
+ * 3. Sửa thông tin danh mục tự chọn (PUT)
+ */
+export const updateCategoryManagement = (categoryId, categoryData) =>
+    axios.put(`http://localhost:8080/api/categories/${categoryId}`, categoryData);
+
+/**
+ * 4. Xóa danh mục tự chọn (DELETE)
+ */
+export const deleteCategoryManagement = (categoryId) =>
+    axios.delete(`http://localhost:8080/api/categories/${categoryId}`);
 
 export default api;
