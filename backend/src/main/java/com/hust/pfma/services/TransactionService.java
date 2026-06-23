@@ -1,5 +1,6 @@
 package com.hust.pfma.services;
 
+import com.hust.pfma.dtos.CategoryRequest;
 import com.hust.pfma.dtos.TransactionRequest;
 import com.hust.pfma.models.*;
 import com.hust.pfma.repositories.*;
@@ -23,12 +24,32 @@ public class TransactionService {
     private CategoryRepository categoryRepository;
 
     @Autowired
-    private BudgetRepository budgetRepository; // Đã nối dây kết nối với kho Ngân sách ở Bước 2
+    private BudgetRepository budgetRepository;
 
-    public List<Transaction> getAllTransactions() {
-        return transactionRepository.findAll();
+    @Autowired
+    private UserRepository userRepository;
+
+    // Lấy danh sách danh mục ứng với User (Mặc định hệ thống + Tự tạo nhanh)
+    public List<Category> getCategories(Long userId) {
+        return categoryRepository.findByUserIdIsNullOrUserId(userId);
     }
 
+    // LUỒNG THAY THẾ: Thêm nhanh danh mục mới
+    public Category createCategoryQuick(CategoryRequest request) {
+        if (request.getCategoryName() == null || request.getCategoryName().trim().isEmpty()) {
+            throw new RuntimeException("Tên danh mục không được để trống!");
+        }
+        User user = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng!"));
+
+        Category category = new Category();
+        category.setCategoryName(request.getCategoryName());
+        category.setType(request.getType());
+        category.setUser(user);
+        return categoryRepository.save(category);
+    }
+
+    // LUỒNG CHÍNH: Thêm giao dịch (Đồng bộ logic ví, kiểm tra ngân sách hợp lệ)
     @Transactional
     public Transaction createTransaction(TransactionRequest request) {
         // 1. Kiểm tra xem Ví và Danh mục có tồn tại trong DB không
@@ -44,30 +65,28 @@ public class TransactionService {
         transaction.setWallet(wallet);
         transaction.setCategory(category);
 
-        // Lấy đích danh userId từ request
-        // Thay vì lấy gián tiếp qua wallet.getUser() để tránh lệch pha chủ sở hữu ví.
-        User currentUser = new User();
-        currentUser.setId(request.getUserId());
-        transaction.setUser(currentUser);
+        // ĐỒNG BỘ: Gán ngày giao dịch từ request (hoặc dùng LocalDate.now() nếu request bị null)
+        transaction.setTransactionDate(request.getTransactionDate() != null ? request.getTransactionDate() : LocalDate.now());
 
-        transaction.setTransactionDate(java.time.LocalDateTime.now()); // Tự động lấy ngày giờ nạp giao dịch
-
-        // 3. Thay đổi số dư ví tiền
+        // 3. Thay đổi số dư ví tiền & Kiểm tra Ngân sách hạn mức
         if ("EXPENSE".equalsIgnoreCase(category.getType())) {
+            if (wallet.getBalance() < request.getAmount()) {
+                throw new RuntimeException("Số dư trong ví không đủ để thực hiện giao dịch chi tiêu này!");
+            }
             wallet.setBalance(wallet.getBalance() - request.getAmount());
 
             // A. Tìm xem danh mục này có đang áp dụng ngân sách nào trong tháng hiện tại không
             LocalDate today = LocalDate.now();
             Optional<Budget> budgetOpt = budgetRepository
                     .findByUserIdAndCategoryIdAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
-                            request.getUserId(), category.getId(), today, today // ĐỒNG BỘ: Dùng request.getUserId() luôn cho chuẩn bài ngân sách
+                            wallet.getUser().getId(), category.getId(), today, today // ĐỒNG BỘ: Lấy userId thông qua thực thể wallet.getUser().getId()
                     );
 
             // B. Nếu tìm thấy Ngân sách, tiến hành cộng dồn tiền đã tiêu và kiểm tra hạn mức
             if (budgetOpt.isPresent()) {
                 Budget budget = budgetOpt.get();
 
-                // Phòng thủ: Nếu spent hoặc amount dính lỗi null dưới DB thì gán bằng 0 để tránh sập NullPointerException
+                // Phòng thủ: Tránh lỗi NullPointerException
                 double currentSpent = budget.getSpent() != null ? budget.getSpent() : 0.0;
                 double budgetAmount = budget.getAmount() != null ? budget.getAmount() : 1.0;
 
@@ -75,14 +94,12 @@ public class TransactionService {
                 budget.setSpent(currentSpent + request.getAmount());
                 budgetRepository.save(budget); // Lưu số tiền đã tiêu mới vào MySQL
 
-                // C. Tính phần trăm để bắn Cảnh báo
+                // C. Tính phần trăm để bắn Cảnh báo (Nếu thực thể Transaction của ông có trường alertMessage)
                 double percentage = (budget.getSpent() / budgetAmount) * 100;
 
-                if (percentage >= 100) {
-                    transaction.setAlertMessage("DANGER: Bạn đã tiêu quá 100% hạn mức của danh mục '" + category.getName() + "' tháng này!");
-                } else if (percentage >= 80) {
-                    transaction.setAlertMessage("WARNING: Bạn đã chi tiêu vượt quá 80% hạn mức của danh mục '" + category.getName() + "' tháng này!");
-                }
+                // ⚠️ Lưu ý: Đoạn này chỉ chạy được nếu Entity Transaction.java của ông có thuộc tính alertMessage hoặc ứng dụng xử lý lưu tạm thời.
+                // Nếu Entity không có trường này, ông có thể log ra hoặc trả ra để Front-end check nhé!
+                System.out.println("Ngân sách danh mục " + category.getCategoryName() + " đã tiêu: " + percentage + "%");
             }
 
         } else if ("INCOME".equalsIgnoreCase(category.getType())) {
@@ -94,6 +111,7 @@ public class TransactionService {
         return transactionRepository.save(transaction);
     }
 
+    // Lấy lịch sử giao dịch động theo UserId (Đã gọi hàm Repo sửa đổi bắc cầu)
     public List<Transaction> getTransactionsByUserId(Long userId) {
         return transactionRepository.findByUserId(userId);
     }

@@ -1,50 +1,51 @@
 package com.hust.pfma.controllers;
 
+import com.hust.pfma.dtos.CategoryRequest;
 import com.hust.pfma.dtos.TransactionRequest;
-import com.hust.pfma.models.Transaction;
 import com.hust.pfma.services.TransactionService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/transactions")
 @CrossOrigin(origins = "http://localhost:5173")
 public class TransactionController {
 
-    private final TransactionService transactionService;
+    @Autowired private TransactionService transactionService;
 
-    public TransactionController(TransactionService transactionService) {
-        this.transactionService = transactionService;
+    // API lấy toàn bộ danh mục ứng với user
+    @GetMapping("/categories/{userId}")
+    public ResponseEntity<?> getCategories(@PathVariable Long userId) {
+        return ResponseEntity.ok(transactionService.getCategories(userId));
     }
 
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<?> getTransactionsByUserId(@PathVariable Long userId) {
+    // API Luồng phụ: Thêm nhanh danh mục
+    @PostMapping("/categories")
+    public ResponseEntity<?> createCategoryQuick(@RequestBody CategoryRequest request) {
         try {
-            // Thử chạy lệnh lấy dữ liệu từ Service
-            List<Transaction> transactions = transactionService.getTransactionsByUserId(userId);
-            return ResponseEntity.ok(transactions);
-        } catch (Exception e) {
-            // LỆNH QUAN TRỌNG: Ép IntelliJ phải in sạch dòng lỗi gốc ra tab Console
-            e.printStackTrace();
-
-            // Trả về tin nhắn lỗi cụ thể cho Frontend nhìn thấy
-            return ResponseEntity.internalServerError().body("Lỗi Backend chi tiết: " + e.getMessage());
+            return ResponseEntity.ok(Map.of(
+                    "status", "success",
+                    "message", "Thêm danh mục mới thành công!",
+                    "data", transactionService.createCategoryQuick(request)
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", e.getMessage()));
         }
     }
 
-    /**
-     * UC10: Thêm giao dịch & Tự động trả về Tin nhắn cảnh báo hạn mức ngân sách
-     */
+    // API Luồng chính: Thêm giao dịch mới
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody TransactionRequest request) {
+    public ResponseEntity<?> createTransaction(@RequestBody TransactionRequest request) {
         try {
-            Transaction newTransaction = transactionService.createTransaction(request);
-
-            // Hệ thống tự động trả về đối tượng kèm theo thông tin alertMessage (nếu có)
-            return ResponseEntity.ok(newTransaction);
+            return ResponseEntity.ok(Map.of(
+                    "status", "success",
+                    "message", "Thêm giao dịch thành công!",
+                    "data", transactionService.createTransaction(request)
+            ));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", e.getMessage()));
         }
     }
 }

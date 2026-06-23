@@ -15,11 +15,13 @@ public class Category {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String name;
+    @Column(name = "category_name", nullable = false)
+    private String categoryName;
 
-    @Column(nullable = false)
-    private String type; // "INCOME" (Thu nhập) hoặc "EXPENSE" (Chi tiêu)
+    @Column(name = "type", nullable = false)
+    private String type;
 
-    private String icon;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 }
