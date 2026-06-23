@@ -1,278 +1,321 @@
-// src/views/Transactions/TransactionsView.jsx
 import { useState, useEffect } from 'react';
-import { ArrowUpRight, ArrowDownLeft, Plus, Loader2, X, AlertCircle } from 'lucide-react';
-import api from '../../services/api';
+import { ArrowLeftRight, Plus, FolderPlus, Loader2, CheckCircle2, AlertCircle, Calendar, Wallet, Tag, DollarSign, FileText } from 'lucide-react';
+import { getWalletsByUserId, getCategoriesByUserId, createCategory, createTransaction } from '../../services/api';
 
 const TransactionsView = () => {
-    // ============================================================================
-    // 1. QUẢN LÝ STATE & PHÒNG THỦ DỮ LIỆU ĐA TẦNG
-    // ============================================================================
-    const [transactions, setTransactions] = useState([]);
-    const [error, setError] = useState(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [hasFetched, setHasFetched] = useState(false);
+    // Quản lý dữ liệu động từ Backend
+    const [wallets, setWallets] = useState([]);
+    const [categories, setCategories] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [message, setMessage] = useState('');
+    const [error, setError] = useState('');
 
-    const currentUserId = sessionStorage.getItem('userId') || sessionStorage.getItem('id');
-    const hasValidUser = currentUserId && currentUserId !== 'undefined' && currentUserId !== 'null';
-
-    const loading = hasValidUser && !hasFetched;
-
+    // State biểu mẫu Giao dịch chính
     const [formData, setFormData] = useState({
         amount: '',
-        description: '',
-        categoryId: '1',
-        walletId: '1'
+        type: 'EXPENSE',
+        categoryId: '',
+        walletId: '',
+        transactionDate: new Date().toISOString().split('T')[0],
+        description: ''
     });
 
-    // ============================================================================
-    // 2. EFFECT TỰ ĐỘNG TẢI LỊCH SỬ GIAO DỊCH (ĐÃ XÓA CHỮ /api THỪA)
-    // ============================================================================
-    useEffect(() => {
-        if (!hasValidUser) {
-            setError("Không tìm thấy phiên đăng nhập hợp lệ. Vui lòng đăng nhập lại!");
-            return;
-        }
+    // State luồng rẽ nhánh: Thêm nhanh danh mục mới
+    const [showQuickCategory, setShowQuickCategory] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
 
-        const loadDataFromServer = async () => {
+    const currentUserId = sessionStorage.getItem('userId') || sessionStorage.getItem('id');
+
+    // LUỒNG 1: LOAD TOÀN BỘ VÍ ĐỘNG VÀ DANH MỤC ĐỘNG KHI TẢI TRANG
+    useEffect(() => {
+        if (!currentUserId) return;
+
+        const loadInitData = async () => {
             try {
-                const response = await api.get(`/transactions/user/${currentUserId}`);
-                setTransactions(Array.isArray(response.data) ? response.data : []);
-                setError(null);
+                setIsLoading(true);
+                // Gọi song song cả 2 API để tối ưu hóa thời gian phản hồi
+                const [walletsRes, categoriesRes] = await Promise.all([
+                    getWalletsByUserId(currentUserId),
+                    getCategoriesByUserId(currentUserId)
+                ]);
+
+                setWallets(walletsRes.data || []);
+                setCategories(categoriesRes.data || []);
             } catch (err) {
-                console.error("Lỗi lấy danh sách giao dịch:", err);
-                setError("Không thể kết nối dữ liệu giao dịch. Hãy kiểm tra server Backend!");
+                console.error("Lỗi tải dữ liệu khởi tạo:", err);
+                setError("Không thể đồng bộ danh sách ví hoặc danh mục tài khoản!");
             } finally {
-                setHasFetched(true);
+                setIsLoading(false);
             }
         };
 
-        const timer = setTimeout(() => {
-            loadDataFromServer();
-        }, 0);
-
-        return () => clearTimeout(timer);
-    }, [currentUserId, hasValidUser]);
-
-    // Hàm phụ nạp lại dữ liệu sau khi submit form thành công (ĐÃ XÓA CHỮ /api THỪA)
-    const fetchTransactions = async () => {
-        if (!hasValidUser) return;
-        try {
-            const response = await api.get(`/transactions/user/${currentUserId}`);
-            setTransactions(Array.isArray(response.data) ? response.data : []);
-            setError(null);
-        } catch (err) {
-            console.error("Lỗi cập nhật lại giao dịch:", err);
-        }
-    };
+        loadInitData();
+    }, [currentUserId]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
     };
 
-    // ============================================================================
-    // 3. HÀM GỬI FORM (ĐÃ XÓA CHỮ /api THỪA Ở LỆNH POST)
-    // ============================================================================
-    const handleFormSubmit = async (e) => {
+    // LUỒNG 2: XỬ LÝ THÊM NHANH DANH MỤC (NÚT DẤU CỘNG +)
+    const handleQuickCategorySubmit = async (e) => {
         e.preventDefault();
-        if (!formData.amount) return alert("Vui lòng nhập số tiền!");
-
-        const rawAmount = formData.amount.toString().replace(/\D/g, '');
-
-        const transactionRequestPayload = {
-            amount: Number(rawAmount),
-            description: formData.description,
-            walletId: Number(formData.walletId),
-            categoryId: Number(formData.categoryId),
-            userId: Number(currentUserId)
-        };
+        if (!newCategoryName.trim()) return;
 
         try {
-            const response = await api.post('/transactions', transactionRequestPayload);
+            setIsLoading(true);
+            setError('');
 
-            if (response.data && response.data.alertMessage) {
-                alert(`⚠️ CẢNH BÁO HỆ THỐNG: ${response.data.alertMessage}`);
-            } else {
-                alert("🎉 Ghi sổ giao dịch thành công!");
+            const response = await createCategory({
+                userId: Number(currentUserId),
+                categoryName: newCategoryName.trim(),
+                type: formData.type // Ăn theo loại Thu hay Chi đang chọn ở form
+            });
+
+            setMessage(response.data?.message || "Thêm danh mục mới thành công!");
+
+            // 🔄 Tự động cập nhật danh mục mới vào danh sách lựa chọn trên UI
+            const createdCat = response.data?.data;
+            if (createdCat) {
+                setCategories([...categories, createdCat]);
+                setFormData({ ...formData, categoryId: createdCat.id }); // Tự chọn luôn danh mục vừa tạo
             }
 
-            await fetchTransactions();
-            setIsModalOpen(false);
-            setFormData({ amount: '', description: '', categoryId: '1', walletId: '1' });
+            setNewCategoryName('');
+            setShowQuickCategory(false);
         } catch (err) {
-            console.error("Lỗi khi thêm giao dịch thật:", err);
-            if (err.response && err.response.data) {
-                alert(`❌ THẤT BẠI TỪ BACKEND: ${err.response.data}`);
-            } else {
-                alert("Thêm giao dịch thất bại! Hãy kiểm tra lại kết nối server mạng.");
-            }
+            console.error(err);
+            setError(err.response?.data?.message || "Lỗi tạo nhanh danh mục!");
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    // ============================================================================
-    // 4. LUỒNG ĐỔ GIAO DIỆN (RENDER)
-    // ============================================================================
-    if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center h-[60vh] space-y-3">
-                <Loader2 className="text-emerald-500 animate-spin" size={40} />
-                <p className="text-slate-500 font-medium text-sm">Đang tải lịch sử giao dịch từ MySQL...</p>
-            </div>
-        );
-    }
+    // LUỒNG 3: NÚT LƯU FORM GIAO DỊCH CHÍNH
+    const handleTransactionSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setMessage('');
+
+        // Phòng thủ Frontend dữ liệu bắt buộc
+        if (!formData.walletId) {
+            setError('Vui lòng chọn ví nguồn tiền thực hiện giao dịch!');
+            return;
+        }
+        if (!formData.categoryId) {
+            setError('Vui lòng chọn danh mục phân loại thu chi!');
+            return;
+        }
+
+        const payload = {
+            amount: Number(formData.amount),
+            type: formData.type,
+            categoryId: Number(formData.categoryId),
+            walletId: Number(formData.walletId),
+            transactionDate: formData.transactionDate,
+            description: formData.description
+        };
+
+        try {
+            setIsLoading(true);
+            const response = await createTransaction(payload);
+
+            setMessage(response.data?.message || "🎉 Giao dịch đã được ghi nhận thành công!");
+
+            // Xóa sạch dữ liệu ô tiền và ghi chú sau khi lưu thành công
+            setFormData({
+                ...formData,
+                amount: '',
+                description: '',
+                categoryId: ''
+            });
+        } catch (err) {
+            console.error(err);
+            setError(err.response?.data?.message || "Có lỗi xảy ra, không thể lưu giao dịch!");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Lịch sử giao dịch thật</h1>
-                    <p className="text-sm text-slate-500 mt-1">Dữ liệu thu chi được cập nhật thời gian thực theo từng tài khoản riêng biệt.</p>
-                </div>
-                <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl shadow-md transition-all text-sm"
-                >
-                    <Plus size={18} />
-                    Ghi chép giao dịch mới
-                </button>
+        <div className="max-w-2xl mx-auto space-y-6 p-2">
+            {/* Header */}
+            <div className="border-b border-slate-100 pb-4">
+                <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                    <ArrowLeftRight className="text-slate-700" size={22} /> Ghi chép giao dịch tài chính
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">Lập biểu mẫu thu chi phát sinh thực tế. Hệ thống sẽ tự động cộng hoặc trừ tiền trực tiếp vào số dư ví tương ứng.</p>
             </div>
 
+            {/* Thông báo trạng thái */}
+            {message && (
+                <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl flex items-center gap-2 animate-in fade-in duration-200">
+                    <CheckCircle2 size={16} className="shrink-0" />
+                    <span>{message}</span>
+                </div>
+            )}
             {error && (
-                <div className="p-4 bg-rose-50 border border-rose-100 text-rose-700 text-sm font-medium rounded-xl flex items-center gap-2">
-                    <AlertCircle size={18} /> {error}
+                <div className="p-3 bg-rose-50 border border-rose-100 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-2 animate-in fade-in duration-200">
+                    <AlertCircle size={16} className="shrink-0" />
+                    <span>{error}</span>
                 </div>
             )}
 
-            {!loading && transactions.length === 0 ? (
-                <div className="text-center p-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400 font-medium text-sm">
-                    Chưa có giao dịch nào được ghi nhận cho tài khoản này. Hãy bấm nút phía trên để tạo giao dịch thật nhé!
-                </div>
-            ) : (
-                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-500">
-                                <th className="p-4">Kiểu</th>
-                                <th className="p-4">Số tiền</th>
-                                <th className="p-4">Danh mục</th>
-                                <th className="p-4">Ghi chú / Mô tả</th>
-                                <th className="p-4">Thời gian</th>
-                            </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
-                            {transactions.map((tx, index) => {
-                                if (!tx) return null;
-                                const isExpense = tx.category?.type === 'EXPENSE';
-                                const formattedDate = tx.transactionDate ? new Date(tx.transactionDate).toLocaleString('vi-VN') : 'Vừa xong';
-
-                                return (
-                                    <tr key={tx.id || index} className="hover:bg-slate-50/80 transition-colors">
-                                        <td className="p-4">
-                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
-                                                isExpense ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'
-                                            }`}>
-                                              {isExpense ? <ArrowDownLeft size={14} /> : <ArrowUpRight size={14} />}
-                                                {isExpense ? 'Khoản Chi' : 'Thu Nhập'}
-                                            </span>
-                                        </td>
-                                        <td className={`p-4 font-bold ${isExpense ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                            {isExpense ? '-' : '+'}{(tx.amount || 0).toLocaleString()} đ
-                                        </td>
-                                        <td className="p-4 text-slate-900">{tx.category?.name || `Danh mục #${tx.category?.id || ''}`}</td>
-                                        <td className="p-4 text-slate-500 max-w-xs truncate">{tx.description || '—'}</td>
-                                        <td className="p-4 text-slate-400 text-xs">{formattedDate}</td>
-                                    </tr>
-                                );
-                            })}
-                            </tbody>
-                        </table>
+            {/* BIỂU MẪU CHÍNH */}
+            <form onSubmit={handleTransactionSubmit} className="space-y-4 bg-white p-2">
+                {/* 1. Chọn loại giao dịch */}
+                <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Loại phát sinh</label>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, type: 'EXPENSE', categoryId: '' })}
+                            className={`py-3 rounded-xl text-sm font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                                formData.type === 'EXPENSE'
+                                    ? 'bg-rose-50 border-rose-200 text-rose-700 shadow-sm font-extrabold'
+                                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                        >
+                            💸 Khoản Chi ra (Expense)
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, type: 'INCOME', categoryId: '' })}
+                            className={`py-3 rounded-xl text-sm font-bold transition-all border flex items-center justify-center gap-1.5 ${
+                                formData.type === 'INCOME'
+                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm font-extrabold'
+                                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                        >
+                            💰 Khoản Thu vào (Income)
+                        </button>
                     </div>
                 </div>
-            )}
 
-            {isModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md border border-slate-100 overflow-hidden">
-                        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                            <h3 className="font-bold text-slate-800 text-lg">Ghi chép giao dịch mới</h3>
-                            <button onClick={() => setIsModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
-                                <X size={20} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* 2. Nhập số tiền */}
+                    <div className="space-y-1">
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                            <DollarSign size={13} /> Số tiền giao dịch (đ)
+                        </label>
+                        <input
+                            type="number" name="amount" placeholder="Ví dụ: 50000"
+                            value={formData.amount} onChange={handleInputChange} required disabled={isLoading}
+                            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-slate-900 bg-slate-50/30 font-bold font-mono text-slate-800"
+                        />
+                    </div>
+
+                    {/* 3. Chọn ngày giao dịch */}
+                    <div className="space-y-1">
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                            <Calendar size={13} /> Ngày phát sinh
+                        </label>
+                        <input
+                            type="date" name="transactionDate"
+                            value={formData.transactionDate} onChange={handleInputChange} required disabled={isLoading}
+                            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-slate-900 bg-slate-50/30 font-medium font-mono"
+                        />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* 4. Thả xuống chọn Ví Động (UC04 mapped) */}
+                    <div className="space-y-1">
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                            <Wallet size={13} /> Chọn ví thanh toán
+                        </label>
+                        <select
+                            name="walletId" value={formData.walletId} onChange={handleInputChange} required disabled={isLoading}
+                            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-slate-900 bg-slate-50/30 font-medium text-slate-700"
+                        >
+                            <option value="">-- Chọn ví nguồn tiền --</option>
+                            {wallets.map(w => (
+                                <option key={w.id} value={w.id}>
+                                    {w.walletName} (Dư: {new Intl.NumberFormat('vi-VN').format(w.balance)}đ)
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* 5. Thả xuống chọn Danh mục Động + Nút thêm nhanh */}
+                    <div className="space-y-1">
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
+                            <span className="flex items-center gap-1"><Tag size={13} /> Chọn hạng mục danh mục</span>
+
+                            {/* NÚT TÍNH NĂNG RẼ NHÁNH: BẤM MỞ FORM THÊM NHANH DANH MỤC */}
+                            <button
+                                type="button"
+                                onClick={() => setShowQuickCategory(!showQuickCategory)}
+                                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-500 flex items-center gap-0.5"
+                            >
+                                <Plus size={12} /> Thêm nhanh mục
+                            </button>
+                        </label>
+
+                        <div className="flex gap-2">
+                            <select
+                                name="categoryId" value={formData.categoryId} onChange={handleInputChange} required disabled={isLoading}
+                                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-slate-900 bg-slate-50/30 font-medium text-slate-700"
+                            >
+                                <option value="">-- Chọn danh mục phân loại --</option>
+                                {categories
+                                    .filter(c => c.type === formData.type) // Chỉ hiện danh mục tương ứng với loại thu/chi đang chọn
+                                    .map(c => (
+                                        <option key={c.id} value={c.id}>{c.categoryName}</option>
+                                    ))}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                {/* FORM THÊM NHANH DANH MỤC HIỆN RA KHI BẤM NÚT + */}
+                {showQuickCategory && (
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 animate-in slide-in-from-top-2 duration-150">
+                        <div className="flex items-center justify-between">
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1">
+                                <FolderPlus size={12} /> Nhập tên danh mục mới muốn tạo ({formData.type === 'EXPENSE' ? 'Chi tiêu' : 'Thu nhập'})
+                            </label>
+                            <button type="button" onClick={() => setShowQuickCategory(false)} className="text-xs text-slate-400 hover:text-slate-600">Hủy</button>
+                        </div>
+                        <div className="flex gap-2">
+                            <input
+                                type="text" placeholder="Ví dụ: Tiền trà sữa, Tiền lương tháng..."
+                                value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} disabled={isLoading}
+                                className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-600 bg-white"
+                            />
+                            <button
+                                type="button" onClick={handleQuickCategorySubmit} disabled={isLoading || !newCategoryName.trim()}
+                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-400 text-white text-xs font-bold rounded-xl transition-all"
+                            >
+                                Xác nhận thêm
                             </button>
                         </div>
-
-                        <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Số tiền (đ)</label>
-                                <input
-                                    type="number"
-                                    name="amount"
-                                    placeholder="Ví dụ: 50000"
-                                    value={formData.amount}
-                                    onChange={handleInputChange}
-                                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-slate-900 font-semibold"
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Nội dung / Ghi chú</label>
-                                <input
-                                    type="text"
-                                    name="description"
-                                    placeholder="Ví dụ: Ăn trưa với nhóm bạn"
-                                    value={formData.description}
-                                    onChange={handleInputChange}
-                                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-slate-900"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Chọn danh mục thu chi</label>
-                                <select
-                                    name="categoryId"
-                                    value={formData.categoryId}
-                                    onChange={handleInputChange}
-                                    className="w-full border border-slate-200 bg-white rounded-xl px-4 py-2.5 text-sm focus:outline-none text-slate-700 font-medium"
-                                >
-                                    <option value="1">Danh mục số 1 (Ăn uống - CHI)</option>
-                                    <option value="2">Danh mục số 2 (Giải trí - CHI)</option>
-                                    <option value="3">Danh mục số 3 (Lương đi làm - THU)</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Chọn ví thanh toán</label>
-                                <select
-                                    name="walletId"
-                                    value={formData.walletId}
-                                    onChange={handleInputChange}
-                                    className="w-full border border-slate-200 bg-white rounded-xl px-4 py-2.5 text-sm focus:outline-none text-slate-700 font-medium"
-                                >
-                                    <option value="1">Ví chính (Tiền mặt)</option>
-                                    <option value="2">Tài khoản ngân hàng</option>
-                                </select>
-                            </div>
-
-                            <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-100 mt-5">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 rounded-xl"
-                                >
-                                    Hủy bỏ
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-5 py-2 text-sm font-bold bg-slate-900 text-white hover:bg-slate-800 rounded-xl shadow-sm"
-                                >
-                                    Ghi sổ giao dịch
-                                </button>
-                            </div>
-                        </form>
                     </div>
+                )}
+
+                {/* 6. Nhập mô tả */}
+                <div className="space-y-1">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                        <FileText size={13} /> Nội dung / Ghi chú chi tiết
+                    </label>
+                    <textarea
+                        name="description" rows="2" placeholder="Ví dụ: Mua sắm nhu yếu phẩm, ăn tối cùng gia đình..."
+                        value={formData.description} onChange={handleInputChange} disabled={isLoading}
+                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-slate-900 bg-slate-50/30 font-medium resize-none"
+                    />
                 </div>
-            )}
+
+                {/* Nút bấm Submit form chính */}
+                <div className="pt-2">
+                    <button
+                        type="submit" disabled={isLoading}
+                        className="w-full py-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-600 text-white font-bold rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2"
+                    >
+                        {isLoading && <Loader2 className="animate-spin" size={16} />}
+                        Lưu và Khấu trừ giao dịch hệ thống
+                    </button>
+                </div>
+            </form>
         </div>
     );
 };

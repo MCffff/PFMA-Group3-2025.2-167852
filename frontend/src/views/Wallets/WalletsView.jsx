@@ -31,6 +31,7 @@ const WalletsView = () => {
     };
 
     useEffect(() => {
+        console.log("Giá trị currentUserId hiện tại là:", currentUserId);
         const loadData = async () => {
             if (currentUserId) {
                 await fetchWallets();

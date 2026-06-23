@@ -3,6 +3,8 @@ package com.hust.pfma.models;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -16,31 +18,21 @@ public class Transaction {
     private Long id;
 
     @Column(nullable = false)
-    private Double amount; // Số tiền giao dịch (Ví dụ: 50000)
+    private Double amount;
 
-    private String description; // Ghi chú (Ví dụ: "Ăn trưa với nhóm")
+    @Column(nullable = false)
+    private String type;
 
-    @Column(name = "transaction_date", nullable = false)
-    private LocalDateTime transactionDate = LocalDateTime.now();
-
-    // Mối quan hệ: Nhiều giao dịch thuộc về 1 Ví tiền
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "wallet_id", nullable = false)
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "user"})
-    private Wallet wallet;
-
-    // Mối quan hệ: Nhiều giao dịch thuộc về 1 Danh mục thu chi
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "category_id", nullable = false)
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Category category;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password"}) // Giấu password khi trả dữ liệu về Client
-    private User user;
+    @ManyToOne
+    @JoinColumn(name = "wallet_id", nullable = false)
+    private Wallet wallet;
 
-    // Dòng tin nhắn cảnh báo
-    @Transient
-    private String alertMessage;
+    @Column(name = "transaction_date", nullable = false)
+    private LocalDate transactionDate;
+
+    private String description;
 }
