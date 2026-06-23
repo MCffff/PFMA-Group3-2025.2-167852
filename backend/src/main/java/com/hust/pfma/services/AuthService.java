@@ -3,6 +3,7 @@ package com.hust.pfma.services;
 import com.hust.pfma.dtos.ChangePasswordRequest;
 import com.hust.pfma.dtos.LoginRequest;
 import com.hust.pfma.dtos.RegisterRequest;
+import com.hust.pfma.dtos.UpdateProfileRequest;
 import com.hust.pfma.models.User;
 import com.hust.pfma.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -120,5 +121,28 @@ public class AuthService {
         user.setResetPasswordToken(null);
         user.setResetPasswordTokenExpiry(null);
         userRepository.save(user);
+    }
+
+    // Lấy thông tin cá nhân hiện tại
+    public User getUserProfile(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng!"));
+    }
+
+    // Cập nhật thông tin cá nhân
+    public User updateUserProfile(Long userId, UpdateProfileRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng!"));
+
+        // 1. Kiểm tra nếu email thay đổi và trùng với người khác
+        if (!user.getEmail().equals(request.getEmail()) && userRepository.existsByEmail(request.getEmail())) {
+            throw new RuntimeException("Email này đã được sử dụng bởi tài khoản khác!");
+        }
+
+        // 2. Vì đã có @Data, ông gọi trực tiếp các hàm set/get tự sinh này cực kỳ mượt mà
+        user.setFullName(request.getFullName());
+        user.setEmail(request.getEmail());
+
+        return userRepository.save(user);
     }
 }

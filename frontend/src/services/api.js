@@ -29,4 +29,11 @@ export const resetPassword = (token, newPassword) => api.post('/auth/reset-passw
 export const changePassword = (userId, oldPassword, newPassword) =>
     api.post('/auth/change-password', { userId, oldPassword, newPassword });
 
+// Lấy thông tin cá nhân hiện tại
+export const getUserProfile = (userId) => api.get(`/auth/profile/${userId}`);
+
+// Cập nhật thông tin cá nhân mới
+export const updateUserProfile = (userId, fullName, email) =>
+    api.put(`/auth/profile/${userId}`, { fullName, email });
+
 export default api;

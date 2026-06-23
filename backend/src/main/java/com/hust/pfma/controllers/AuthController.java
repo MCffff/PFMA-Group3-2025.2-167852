@@ -7,7 +7,8 @@ import com.hust.pfma.models.User;
 import com.hust.pfma.services.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.util.Map; // Import Map để bóc tách JSON nhanh ở Frontend
+import com.hust.pfma.dtos.UpdateProfileRequest;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -58,8 +59,7 @@ public class AuthController {
     }
 
     /**
-     * API 1: Tiếp nhận yêu cầu gửi mail quên mật khẩu
-     * POST http://localhost:8080/api/auth/forgot-password?email=...
+     * API: Tiếp nhận yêu cầu gửi mail quên mật khẩu
      */
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestParam String email) {
@@ -72,8 +72,7 @@ public class AuthController {
     }
 
     /**
-     * API 2: Nhận mã Token cùng mật khẩu mới để tiến hành thay đổi dữ liệu
-     * POST http://localhost:8080/api/auth/reset-password
+     * API: Nhận mã Token cùng mật khẩu mới để tiến hành thay đổi dữ liệu
      */
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> requestBody) {
@@ -89,6 +88,36 @@ public class AuthController {
             return ResponseEntity.ok("Đặt lại mật khẩu mới thành công! Bạn có thể sử dụng thông tin này để đăng nhập.");
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /**
+     * API: Lấy thông tin cá nhân
+     */
+    @GetMapping("/profile/{id}")
+    public ResponseEntity<?> getUserProfile(@PathVariable Long id) {
+        try {
+            User user = authService.getUserProfile(id);
+            return ResponseEntity.ok(user); // Trả về thông tin user (id, username, email...)
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", e.getMessage()));
+        }
+    }
+
+    /**
+     * API: Cập nhật thông tin cá nhân
+     */
+    @PutMapping("/profile/{id}")
+    public ResponseEntity<?> updateUserProfile(@PathVariable Long id, @RequestBody UpdateProfileRequest request) {
+        try {
+            User updatedUser = authService.updateUserProfile(id, request);
+            return ResponseEntity.ok(Map.of(
+                    "status", "success",
+                    "message", "Cập nhật thông tin cá nhân thành công!",
+                    "data", updatedUser
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", e.getMessage()));
         }
     }
 }
