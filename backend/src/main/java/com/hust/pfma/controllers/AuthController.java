@@ -42,14 +42,18 @@ public class AuthController {
         }
     }
 
-    // API phục vụ UC03: Đổi mật khẩu (Giữ nguyên)
-    @PutMapping("/change-password/{id}")
-    public ResponseEntity<?> changePassword(@PathVariable Long id, @RequestBody ChangePasswordRequest request) {
+    // API phục vụ UC03: Đổi mật khẩu
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest request) {
         try {
-            authService.changePassword(id, request);
-            return ResponseEntity.ok("Cập nhật mật khẩu thành công");
+            // Gọi hàm xử lý logic dịch vụ
+            authService.changePassword(request);
+
+            // Trả về JSON Object chứa "status" và "message" đúng cấu hình Front-End yêu cầu
+            return ResponseEntity.ok(Map.of("status", "success", "message", "Đổi mật khẩu thành công!"));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            // Khi có lỗi (sai mật khẩu, sai ID), bắn JSON lỗi về cho Axios bắt
+            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", e.getMessage()));
         }
     }
 
