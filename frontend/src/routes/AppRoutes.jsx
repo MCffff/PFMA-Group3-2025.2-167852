@@ -9,6 +9,7 @@ import LoginView from '../views/Auth/LoginView';
 import RegisterView from '../views/Auth/RegisterView';
 import ChangePasswordView from '../views/Profile/ChangePasswordView';
 import ForgotPasswordView from '../views/Auth/ForgotPasswordView';
+import WalletsView from '../views/Wallets/WalletsView';
 
 // CHIẾC KHÓA BẢO MẬT (ProtectedRoute)
 const ProtectedRoute = ({ children }) => {
@@ -42,7 +43,7 @@ const AppRoutes = () => {
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard" element={<DashboardView />} />
                 <Route path="transactions" element={<TransactionsView />} />
-
+                <Route path="wallets" element={<WalletsView />} />
                 {/* Đấu nối trực tiếp vào các File View đã tạo */}
                 <Route path="analytics" element={<AnalyticsView />} />
                 <Route path="budgets" element={<BudgetsView />} />

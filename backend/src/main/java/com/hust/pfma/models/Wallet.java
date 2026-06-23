@@ -3,6 +3,8 @@ package com.hust.pfma.models;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "wallets")
@@ -14,16 +16,20 @@ public class Wallet {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String name;
+    @Column(name = "wallet_name", nullable = false)
+    private String walletName;
 
-    @Column(nullable = false)
-    private Double balance = 0.0;
+    @Column(name = "balance", nullable = false)
+    private Double balance;
 
-    private String currency = "VND";
+    @Column(name = "description")
+    private String description;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password", "wallets"})
+    @JsonIgnore
     private User user;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt = LocalDateTime.now();
 }
