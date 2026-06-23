@@ -1,158 +1,227 @@
-import { useState } from 'react';
-import { ShieldAlert, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
-import { changePassword } from '../../services/api';
+import { useState, useEffect } from 'react';
+import { User, ShieldAlert, CheckCircle2, AlertCircle, Loader2, UserCheck, Settings } from 'lucide-react';
+import { getUserProfile, updateUserProfile, changePassword } from '../../services/api';
 
 const ChangePasswordView = () => {
-    const [formData, setFormData] = useState({
-        oldPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-    });
-    const [message, setMessage] = useState('');
-    const [error, setError] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+    // 1. Quản lý State cho Form Thông tin cá nhân (Đã đổi sang fullName)
+    const [profileData, setProfileData] = useState({ fullName: '', email: '' });
+    const [profileMsg, setProfileMsg] = useState('');
+    const [profileErr, setProfileErr] = useState('');
+    const [isProfileLoading, setIsProfileLoading] = useState(false);
 
-    // Lấy Id người dùng đang đăng nhập từ sessionStorage
+    // 2. Quản lý State cho Form Đổi mật khẩu
+    const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
+    const [passwordMsg, setPasswordMsg] = useState('');
+    const [passwordErr, setPasswordErr] = useState('');
+    const [isPasswordLoading, setIsPasswordLoading] = useState(false);
+
+    // Bốc Id người dùng đang đăng nhập từ phiên làm việc
     const currentUserId = sessionStorage.getItem('userId') || sessionStorage.getItem('id');
 
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+    // LUỒNG 1: Tự động đổ dữ liệu cũ từ MySQL lên Form khi vừa mở trang
+    useEffect(() => {
+        if (!currentUserId) return;
+        getUserProfile(currentUserId)
+            .then(res => {
+                // 👉 ĐÃ SỬA: Đổi từ res.data.username thành res.data.fullName theo yêu cầu của Cường
+                setProfileData({
+                    fullName: res.data.fullName || '',
+                    email: res.data.email || ''
+                });
+            })
+            .catch(err => {
+                console.error("Lỗi tải thông tin:", err);
+                setProfileErr("Không thể bốc dữ liệu thông tin cá nhân từ Server!");
+            });
+    }, [currentUserId]);
+
+    const handleProfileChange = (e) => {
+        setProfileData({ ...profileData, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = async (e) => {
+    const handlePasswordChange = (e) => {
+        setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
+    };
+
+    // LUỒNG 2: Xử lý khi nhấn nút "Lưu thay đổi" thông tin cá nhân
+    const handleUpdateProfile = async (e) => {
         e.preventDefault();
-        setError('');
-        setMessage('');
+        setProfileErr('');
+        setProfileMsg('');
 
-        // 1. Kiểm tra phiên đăng nhập
-        if (!currentUserId || currentUserId === 'undefined' || currentUserId === 'null') {
-            setError('Không tìm thấy phiên đăng nhập hợp lệ. Vui lòng thử đăng nhập lại!');
+        try {
+            setIsProfileLoading(true);
+
+            const response = await updateUserProfile(currentUserId, profileData.fullName, profileData.email);
+
+            setProfileMsg(response.data?.message || "Cập nhật thông tin thành công!");
+
+            // Ghi đè tên mới vào sessionStorage để Header bốc theo thời gian thực
+            if (response.data?.data?.fullName) {
+                sessionStorage.setItem('username', response.data.data.fullName);
+                window.dispatchEvent(new Event('storage'));
+            }
+        } catch (err) {
+            console.error(err);
+            setProfileErr(err.response?.data?.message || "Lỗi ghi đè thông tin mới!");
+        } finally {
+            setIsProfileLoading(false);
+        }
+    };
+
+    // LUỒNG 3: Xử lý đổi mật khẩu (Giữ nguyên cơ chế bảo mật POST)
+    const handleUpdatePassword = async (e) => {
+        e.preventDefault();
+        setPasswordErr('');
+        setPasswordMsg('');
+
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            setPasswordErr('Mật khẩu mới và xác nhận mật khẩu không trùng khớp!');
             return;
         }
-
-        // 2. Kiểm tra nhanh ở Frontend: Mật khẩu mới có khớp ô xác nhận không
-        if (formData.newPassword !== formData.confirmPassword) {
-            setError('Mật khẩu mới và xác nhận mật khẩu không trùng khớp!');
-            return;
-        }
-
-        // 3. Kiểm tra độ dài mật khẩu theo nghiệp vụ hệ thống
-        if (formData.newPassword.length < 6) {
-            setError('Mật khẩu mới phải từ 6 ký tự trở lên để đảm bảo tính an toàn!');
+        if (passwordData.newPassword.length < 6) {
+            setPasswordErr('Mật khẩu mới phải từ 6 ký tự trở lên!');
             return;
         }
 
         try {
-            setIsLoading(true); // Bật loading chống click spam
+            setIsPasswordLoading(true);
+            const response = await changePassword(Number(currentUserId), passwordData.oldPassword, passwordData.newPassword);
 
-            // Gửi Object phẳng lên đúng Endpoint http://localhost:8080/api/auth/change-password
-            const response = await changePassword(
-                Number(currentUserId), // Ép kiểu số nguyên cho chuẩn DB
-                formData.oldPassword,
-                formData.newPassword
-            );
-
-            // 🟢 Hứng response.data.message ("Đổi mật khẩu thành công!") theo tài liệu Backend
-            setMessage(response.data?.message || 'Đổi mật khẩu thành công!');
-
-            // Xóa sạch các ô nhập liệu sau khi đổi thành công
-            setFormData({ oldPassword: '', newPassword: '', confirmPassword: '' });
+            setPasswordMsg(response.data?.message || 'Đổi mật khẩu thành công!');
+            setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' });
         } catch (err) {
-            console.error("Lỗi xử lý đổi mật khẩu từ server:", err);
-
-            // 🟢 Bắt chuẩn xác Object lỗi của Cường: err.response.data.message
-            if (err.response && err.response.data && err.response.data.message) {
-                setError(err.response.data.message); // Ví dụ: "Mật khẩu hiện tại không chính xác!"
+            if (err.response?.data?.message) {
+                setPasswordErr(err.response.data.message);
             } else {
-                setError('Có lỗi xảy ra khi kết nối đến máy chủ API!');
+                setPasswordErr('Có lỗi xảy ra khi kết nối đối soát máy chủ API!');
             }
         } finally {
-            setIsLoading(false); // Tắt hiệu ứng quay tròn
+            setIsPasswordLoading(false);
         }
     };
 
     return (
-        <div className="max-w-md p-6 bg-white rounded-2xl border border-slate-200 shadow-sm transition-all duration-200">
-            <div className="flex items-center gap-2.5 mb-1">
+        <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-1">
+
+            {/* ================= TIÊU ĐỀ TỔNG CỦA MODAL NỔI ================= */}
+            <div className="flex items-center gap-2.5 mb-2 border-b border-slate-100 pb-3">
                 <div className="p-1.5 bg-slate-50 text-slate-700 rounded-lg border border-slate-100">
-                    <ShieldAlert size={18} />
+                    <Settings size={20} />
                 </div>
-                <h3 className="text-lg font-bold text-slate-800">Đổi mật khẩu hệ thống</h3>
+                <div>
+                    <h2 className="text-lg font-bold text-slate-900">Cài đặt tài khoản</h2>
+                    <p className="text-xs text-slate-400">Quản lý thông tin hồ sơ và cấu hình bảo mật cá nhân</p>
+                </div>
             </div>
-            <p className="text-xs text-slate-400 mb-5">Vui lòng nhập đúng mật khẩu hiện tại để xác thực danh tính chủ tài khoản trước khi đổi.</p>
 
-            {/* Khối thông báo thành công xanh rờn */}
-            {message && (
-                <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl mb-4 flex items-start gap-2">
-                    <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
-                    <span>{message}</span>
+            {/* ================= PHẦN TRÊN: QUẢN LÝ THÔNG TIN CÁ NHÂN ================= */}
+            <div className="p-2 bg-white rounded-xl">
+                <div className="flex items-center gap-2 mb-1">
+                    <div className="p-1.5 bg-slate-50 text-slate-700 rounded-lg border border-slate-100">
+                        <User size={18} />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-800">Thông tin cá nhân</h3>
                 </div>
-            )}
+                <p className="text-[11px] text-slate-400 mb-4">Chỉnh sửa họ tên hiển thị và email liên kết của tài khoản.</p>
 
-            {/* Khối thông báo thất bại đỏ hồng */}
-            {error && (
-                <div className="p-3 bg-rose-50 border border-rose-100 text-rose-700 text-xs font-semibold rounded-xl mb-4 flex items-start gap-2">
-                    <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                    <span>{error}</span>
+                {profileMsg && (
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl mb-3 flex items-center gap-2">
+                        <CheckCircle2 size={15} className="shrink-0" />
+                        <span>{profileMsg}</span>
+                    </div>
+                )}
+                {profileErr && (
+                    <div className="p-2.5 bg-rose-50 border border-rose-100 text-rose-700 text-xs font-semibold rounded-xl mb-3 flex items-center gap-2">
+                        <AlertCircle size={15} className="shrink-0" />
+                        <span>{profileErr}</span>
+                    </div>
+                )}
+
+                <form onSubmit={handleUpdateProfile} className="space-y-3.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <div className="space-y-1">
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Họ và tên</label>
+                            <input
+                                type="text" name="fullName" value={profileData.fullName} onChange={handleProfileChange} required disabled={isProfileLoading}
+                                className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-slate-900 bg-slate-50/30 font-medium"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Hòm thư Email</label>
+                            <input
+                                type="email" name="email" value={profileData.email} onChange={handleProfileChange} required disabled={isProfileLoading}
+                                className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-slate-900 bg-slate-50/30 font-medium"
+                            />
+                        </div>
+                    </div>
+                    <button
+                        type="submit" disabled={isProfileLoading}
+                        className="w-full sm:w-auto px-6 py-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-600 text-white font-bold rounded-xl text-xs transition-all shadow-sm flex items-center justify-center gap-2"
+                    >
+                        {isProfileLoading ? <Loader2 className="animate-spin" size={14} /> : <UserCheck size={14} />}
+                        Lưu thay đổi thông tin
+                    </button>
+                </form>
+            </div>
+
+            <hr className="border-slate-100" />
+
+            {/* ================= PHẦN DƯỚI: ĐỔI MẬT KHẨU TÀI KHOẢN ================= */}
+            <div className="p-2 bg-white rounded-xl">
+                <div className="flex items-center gap-2 mb-1">
+                    <div className="p-1.5 bg-slate-50 text-slate-700 rounded-lg border border-slate-100">
+                        <ShieldAlert size={18} />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-800">Đổi mật khẩu bảo mật</h3>
                 </div>
-            )}
+                <p className="text-[11px] text-slate-400 mb-4">Nhập mật khẩu hiện tại để thực hiện ghi đè chuỗi băm bảo mật mới.</p>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Mật khẩu hiện tại</label>
-                    <input
-                        type="password"
-                        name="oldPassword"
-                        placeholder="Nhập mật khẩu cũ để đối soát BCrypt"
-                        value={formData.oldPassword}
-                        onChange={handleChange}
-                        required
-                        disabled={isLoading}
-                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-slate-900 bg-slate-50/30 font-medium disabled:opacity-60"
-                    />
-                </div>
+                {passwordMsg && (
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl mb-3 flex items-center gap-2">
+                        <CheckCircle2 size={15} className="shrink-0" />
+                        <span>{passwordMsg}</span>
+                    </div>
+                )}
+                {passwordErr && (
+                    <div className="p-2.5 bg-rose-50 border border-rose-100 text-rose-700 text-xs font-semibold rounded-xl mb-3 flex items-center gap-2">
+                        <AlertCircle size={15} className="shrink-0" />
+                        <span>{passwordErr}</span>
+                    </div>
+                )}
 
-                <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Mật khẩu mới</label>
-                    <input
-                        type="password"
-                        name="newPassword"
-                        placeholder="Đặt mật khẩu mới từ 6 ký tự trở lên"
-                        value={formData.newPassword}
-                        onChange={handleChange}
-                        required
-                        disabled={isLoading}
-                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-slate-900 bg-slate-50/30 font-medium disabled:opacity-60"
-                    />
-                </div>
-
-                <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Xác nhận mật khẩu mới</label>
-                    <input
-                        type="password"
-                        name="confirmPassword"
-                        placeholder="Gõ lại mật khẩu mới để kiểm tra trùng khớp"
-                        value={formData.confirmPassword}
-                        onChange={handleChange}
-                        required
-                        disabled={isLoading}
-                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-slate-900 bg-slate-50/30 font-medium disabled:opacity-60"
-                    />
-                </div>
-
-                <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-600 text-white font-bold rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2"
-                >
-                    {isLoading ? (
-                        <>
-                            <Loader2 className="animate-spin" size={16} />
-                            Đang xử lý đối soát mã hóa...
-                        </>
-                    ) : 'Cập nhật mật khẩu'}
-                </button>
-            </form>
+                <form onSubmit={handleUpdatePassword} className="space-y-3.5">
+                    <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Mật khẩu hiện tại</label>
+                        <input
+                            type="password" name="oldPassword" placeholder="Nhập mật khẩu cũ" value={passwordData.oldPassword} onChange={handlePasswordChange} required disabled={isPasswordLoading}
+                            className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-slate-900 bg-slate-50/30 font-medium"
+                        />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Mật khẩu mới</label>
+                            <input
+                                type="password" name="newPassword" placeholder="Tối thiểu 6 ký tự" value={passwordData.newPassword} onChange={handlePasswordChange} required disabled={isPasswordLoading}
+                                className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-slate-900 bg-slate-50/30 font-medium"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Xác nhận mật khẩu mới</label>
+                            <input
+                                type="password" name="confirmPassword" placeholder="Nhập lại mật khẩu mới" value={passwordData.confirmPassword} onChange={handlePasswordChange} required disabled={isPasswordLoading}
+                                className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-slate-900 bg-slate-50/30 font-medium"
+                            />
+                        </div>
+                    </div>
+                    <button
+                        type="submit" disabled={isPasswordLoading}
+                        className="w-full sm:w-auto px-6 py-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-600 text-white font-bold rounded-xl text-xs transition-all shadow-sm"
+                    >
+                        {isPasswordLoading ? 'Đang cập nhật chuỗi băm...' : 'Cập nhật mật khẩu'}
+                    </button>
+                </form>
+            </div>
         </div>
     );
 };
