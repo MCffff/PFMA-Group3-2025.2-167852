@@ -25,4 +25,8 @@ export const forgotPassword = (email) => api.post(`/auth/forgot-password?email=$
 // Gửi mã Token xác thực kèm mật khẩu mới để cập nhật
 export const resetPassword = (token, newPassword) => api.post('/auth/reset-password', { token, newPassword });
 
+// Cổng API xử lý đổi mật khẩu
+export const changePassword = (userId, oldPassword, newPassword) =>
+    api.post('/auth/change-password', { userId, oldPassword, newPassword });
+
 export default api;

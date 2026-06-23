@@ -18,17 +18,16 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final JavaMailSender mailSender;
 
     @Autowired
-    private final JavaMailSender mailSender; // Tiêm JavaMailSender phục vụ gửi mail token
-
     public AuthService(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder, JavaMailSender mailSender) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.mailSender = mailSender;
     }
 
-    // Đăng ký tài khoản mới (Giữ nguyên gốc)
+    // Đăng ký tài khoản mới
     public User register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Tên danh mục hoặc Email này đã tồn tại!");
@@ -44,7 +43,7 @@ public class AuthService {
         return userRepository.save(user);
     }
 
-    // Logic xử lý đăng nhập hệ thống (Giữ nguyên gốc)
+    // Logic xử lý đăng nhập hệ thống
     public User login(LoginRequest request) {
         User user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new RuntimeException("Username hoặc mật khẩu không đúng. Vui lòng thử lại."));
@@ -56,10 +55,10 @@ public class AuthService {
         return user;
     }
 
-    // Logic xử lý UC03: Đối soát và Đổi mật khẩu (Giữ nguyên gốc)
-    public void changePassword(Long userId, ChangePasswordRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Lỗi: Không tìm thấy người dùng!"));
+    // Logic xử lý UC03: Đối soát và Đổi mật khẩu
+    public void changePassword(ChangePasswordRequest request) {
+        User user = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng!"));
 
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
             throw new RuntimeException("Mật khẩu hiện tại không chính xác!");
@@ -75,17 +74,16 @@ public class AuthService {
      * LUỒNG THAY THẾ UC01: Khởi tạo tiến trình Quên mật khẩu, sinh mã xác thực và gửi mail
      */
     public void processForgotPassword(String email) {
-        // Tìm user bằng email (Bạn đảm bảo UserRepository đã khai báo hàm findByEmail nhé)
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản nào liên kết với Email này!"));
 
-        // Sinh Token UUID ngẫu nhiên và cấu hình hạn 15 phút
+        // Sinh Token UUID ngắn gọn để người dùng tiện copy/nhập vào giao diện
         String token = UUID.randomUUID().toString();
         user.setResetPasswordToken(token);
         user.setResetPasswordTokenExpiry(LocalDateTime.now().plusMinutes(15));
         userRepository.save(user);
 
-        // Đóng gói email gửi đi
+        // Tiến hành đóng gói và đẩy Mail đi qua giao thức SMTP cấu hình trong properties
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom("PFMA Support <noreply@gmail.com>");
@@ -106,11 +104,10 @@ public class AuthService {
      * LUỒNG THAY THẾ UC01: Xác thực token và cập nhật mật khẩu mới (có băm BCrypt mã hóa)
      */
     public void updatePasswordWithToken(String token, String newPassword) {
-        // Tìm kiếm user sở hữu mã Token (Đảm bảo UserRepository đã có findByResetPasswordToken)
         User user = userRepository.findByResetPasswordToken(token)
                 .orElseThrow(() -> new RuntimeException("Mã xác thực không hợp lệ hoặc không tồn tại!"));
 
-        // Kiểm tra thời hạn Token
+        // Kiểm tra thời hạn Token chống brute-force hoặc sử dụng mã cũ quá hạn
         if (user.getResetPasswordTokenExpiry().isBefore(LocalDateTime.now())) {
             throw new RuntimeException("Mã xác thực đã hết hạn! Vui lòng yêu cầu cấp mã mới.");
         }
@@ -119,7 +116,7 @@ public class AuthService {
         String hashedNewPassword = passwordEncoder.encode(newPassword);
         user.setPassword(hashedNewPassword);
 
-        // Xóa dấu vết token sau khi đổi thành công
+        // Xóa dấu vết token sau khi đổi thành công để vô hiệu hóa mã này hoàn toàn
         user.setResetPasswordToken(null);
         user.setResetPasswordTokenExpiry(null);
         userRepository.save(user);
