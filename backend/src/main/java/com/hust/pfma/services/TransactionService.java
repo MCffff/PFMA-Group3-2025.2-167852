@@ -64,6 +64,10 @@ public class TransactionService {
         transaction.setDescription(request.getDescription());
         transaction.setWallet(wallet);
         transaction.setCategory(category);
+        transaction.setType(request.getType());
+
+        //Bốc trực tiếp User sở hữu chiếc ví này gán vào Giao dịch
+        transaction.setUser(wallet.getUser());
 
         // ĐỒNG BỘ: Gán ngày giao dịch từ request (hoặc dùng LocalDate.now() nếu request bị null)
         transaction.setTransactionDate(request.getTransactionDate() != null ? request.getTransactionDate() : LocalDate.now());
@@ -79,7 +83,7 @@ public class TransactionService {
             LocalDate today = LocalDate.now();
             Optional<Budget> budgetOpt = budgetRepository
                     .findByUserIdAndCategoryIdAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
-                            wallet.getUser().getId(), category.getId(), today, today // ĐỒNG BỘ: Lấy userId thông qua thực thể wallet.getUser().getId()
+                            wallet.getUser().getId(), category.getId(), today, today
                     );
 
             // B. Nếu tìm thấy Ngân sách, tiến hành cộng dồn tiền đã tiêu và kiểm tra hạn mức
@@ -94,11 +98,8 @@ public class TransactionService {
                 budget.setSpent(currentSpent + request.getAmount());
                 budgetRepository.save(budget); // Lưu số tiền đã tiêu mới vào MySQL
 
-                // C. Tính phần trăm để bắn Cảnh báo (Nếu thực thể Transaction của ông có trường alertMessage)
+                // C. Tính phần trăm để bắn Cảnh báo
                 double percentage = (budget.getSpent() / budgetAmount) * 100;
-
-                // ⚠️ Lưu ý: Đoạn này chỉ chạy được nếu Entity Transaction.java của ông có thuộc tính alertMessage hoặc ứng dụng xử lý lưu tạm thời.
-                // Nếu Entity không có trường này, ông có thể log ra hoặc trả ra để Front-end check nhé!
                 System.out.println("Ngân sách danh mục " + category.getCategoryName() + " đã tiêu: " + percentage + "%");
             }
 
@@ -113,6 +114,11 @@ public class TransactionService {
 
     // Lấy lịch sử giao dịch động theo UserId (Đã gọi hàm Repo sửa đổi bắc cầu)
     public List<Transaction> getTransactionsByUserId(Long userId) {
+        return transactionRepository.findByUserId(userId);
+    }
+
+    public List<Transaction> getTransactionHistoryByUserId(Long userId) {
+        // Gọi xuống Repository để lấy danh sách giao dịch, sắp xếp hoặc trả về trực tiếp
         return transactionRepository.findByUserId(userId);
     }
 }

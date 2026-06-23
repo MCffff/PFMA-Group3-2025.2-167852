@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, ArrowLeftRight, PieChart, Wallet, ShieldCheck, LogOut } from 'lucide-react';
+import { LayoutDashboard, ArrowLeftRight, PieChart, Wallet, ShieldCheck, LogOut, Tag } from 'lucide-react';
 
 const Sidebar = () => {
     // Danh sách các mục menu ứng với các Use Case chính
     const menuItems = [
         { path: '/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
         { path: '/transactions', name: 'Giao dịch', icon: <ArrowLeftRight size={20} /> },
+        { path: '/categories', name: 'Quản lý danh mục', icon: <Tag size={20} /> },
         { path: '/wallets', name: 'Nguồn tiền & Ví', icon: <Wallet size={20} /> },
         { path: '/analytics', name: 'Báo cáo & Phân tích', icon: <PieChart size={20} /> },
         { path: '/budgets', name: 'Hạn mức chi tiêu', icon: <Wallet size={20} /> },

@@ -1,5 +1,6 @@
 package com.hust.pfma.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -35,4 +36,8 @@ public class Transaction {
     private LocalDate transactionDate;
 
     private String description;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false) // Liên kết cột user_id bắt buộc dưới MySQL
+    private User user;
 }
