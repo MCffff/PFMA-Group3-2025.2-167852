@@ -19,4 +19,10 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
+// Gửi yêu cầu quên mật khẩu để Backend gửi mail
+export const forgotPassword = (email) => api.post(`/auth/forgot-password?email=${email}`);
+
+// Gửi mã Token xác thực kèm mật khẩu mới để cập nhật
+export const resetPassword = (token, newPassword) => api.post('/auth/reset-password', { token, newPassword });
+
 export default api;

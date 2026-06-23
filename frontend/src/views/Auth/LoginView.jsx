@@ -61,7 +61,18 @@ const LoginView = () => {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Mật khẩu</label>
+                        <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-bold uppercase text-slate-500">Mật khẩu</label>
+
+                            {/* 🟢 CHÈN NÚT QUÊN MẬT KHẨU VÀO ĐÂY */}
+                            <Link
+                                to="/forgot-password"
+                                className="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors"
+                            >
+                                Quên mật khẩu?
+                            </Link>
+                        </div>
+
                         <input
                             type="password"
                             value={password}

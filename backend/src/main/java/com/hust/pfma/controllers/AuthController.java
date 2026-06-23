@@ -7,6 +7,7 @@ import com.hust.pfma.models.User;
 import com.hust.pfma.services.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.Map; // Import Map để bóc tách JSON nhanh ở Frontend
 
 @RestController
 @RequestMapping("/api/auth")
@@ -19,37 +20,69 @@ public class AuthController {
         this.authService = authService;
     }
 
-    // API phục vụ UC02: Đăng ký tài khoản
+    // API phục vụ UC02: Đăng ký tài khoản (Giữ nguyên)
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody RegisterRequest request) {
         try {
             User registeredUser = authService.register(request);
             return ResponseEntity.ok(registeredUser);
         } catch (RuntimeException e) {
-            // Trả về lỗi 400 nếu trùng email kèm thông báo chuẩn
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    // API phục vụ UC01: Đăng nhập hệ thống
+    // API phục vụ UC01: Đăng nhập hệ thống (Giữ nguyên)
     @PostMapping("/login")
     public ResponseEntity<?> loginUser(@RequestBody LoginRequest request) {
         try {
             User user = authService.login(request);
-            // Giai đoạn này trả về thông tin User hợp lệ để Frontend có dữ liệu xử lý
             return ResponseEntity.ok(user);
         } catch (RuntimeException e) {
-            // Trả về lỗi 401 Unauthorized nếu thông tin sai lệch đúng theo tài liệu đặc tả hướng dẫn
             return ResponseEntity.status(401).body(e.getMessage());
         }
     }
 
-    // API phục vụ UC03: Đổi mật khẩu
+    // API phục vụ UC03: Đổi mật khẩu (Giữ nguyên)
     @PutMapping("/change-password/{id}")
     public ResponseEntity<?> changePassword(@PathVariable Long id, @RequestBody ChangePasswordRequest request) {
         try {
             authService.changePassword(id, request);
             return ResponseEntity.ok("Cập nhật mật khẩu thành công");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /**
+     * API 1: Tiếp nhận yêu cầu gửi mail quên mật khẩu
+     * POST http://localhost:8080/api/auth/forgot-password?email=...
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestParam String email) {
+        try {
+            authService.processForgotPassword(email);
+            return ResponseEntity.ok("Mã xác thực khôi phục mật khẩu đã được gửi qua Email của bạn thành công.");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /**
+     * API 2: Nhận mã Token cùng mật khẩu mới để tiến hành thay đổi dữ liệu
+     * POST http://localhost:8080/api/auth/reset-password
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> requestBody) {
+        try {
+            String token = requestBody.get("token");
+            String newPassword = requestBody.get("newPassword");
+
+            if (token == null || newPassword == null) {
+                return ResponseEntity.badRequest().body("Lỗi: Thiếu mã xác thực hoặc mật khẩu mới!");
+            }
+
+            authService.updatePasswordWithToken(token, newPassword);
+            return ResponseEntity.ok("Đặt lại mật khẩu mới thành công! Bạn có thể sử dụng thông tin này để đăng nhập.");
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
