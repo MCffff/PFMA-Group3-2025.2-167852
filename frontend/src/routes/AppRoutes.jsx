@@ -8,6 +8,7 @@ import AnalyticsView from '../views/Analytics/AnalyticsView';
 import LoginView from '../views/Auth/LoginView';
 import RegisterView from '../views/Auth/RegisterView';
 import ChangePasswordView from '../views/Profile/ChangePasswordView';
+import ForgotPasswordView from '../views/Auth/ForgotPasswordView';
 
 // CHIẾC KHÓA BẢO MẬT (ProtectedRoute)
 const ProtectedRoute = ({ children }) => {
@@ -24,6 +25,7 @@ const AppRoutes = () => {
             {/* ================= VÙNG CÔNG CỘNG (PUBLIC ROUTES) ================= */}
             {/* Người dùng chưa đăng nhập bắt buộc phải đi qua vùng này trước */}
             <Route path="/login" element={<LoginView />} />
+            <Route path="/forgot-password" element={<ForgotPasswordView />} />
             <Route path="/register" element={<RegisterView />} />
 
             {/* ================= VÙNG BẢO MẬT (PROTECTED ROUTES) ================= */}
