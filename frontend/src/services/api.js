@@ -98,4 +98,23 @@ export const updateCategoryManagement = (categoryId, categoryData) =>
 export const deleteCategoryManagement = (categoryId) =>
     axios.delete(`http://localhost:8080/api/categories/${categoryId}`);
 
+// ==================== UC07: XEM DASHBOARD TỔNG QUAN ====================
+// Lấy số liệu thống kê tổng thu, tổng chi, số dư và tỉ trọng danh mục tháng hiện tại.
+export const getDashboardStats = (userId) =>
+    axios.get(`http://localhost:8080/api/dashboard/user/${userId}`).then(res => res.data);
+
+// ==================== UC09: THIẾT LẬP VÀ QUẢN LÝ NGÂN SÁCH (BUDGETS) ====================
+
+// 1. Tải danh sách hạn mức ngân sách động của người dùng
+export const getBudgetsByUserId = (userId) =>
+    axios.get(`http://localhost:8080/api/budgets/user/${userId}`).then(res => res.data);
+
+// 2. Chỉnh sửa số tiền hạn mức (PUT)
+export const updateBudget = (budgetId, budgetData) =>
+    axios.put(`http://localhost:8080/api/budgets/${budgetId}`, budgetData);
+
+// 3. Xóa hạn mức ngân sách (DELETE)
+export const deleteBudget = (budgetId) =>
+    axios.delete(`http://localhost:8080/api/budgets/${budgetId}`);
+
 export default api;
