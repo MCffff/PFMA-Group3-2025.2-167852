@@ -1,6 +1,7 @@
 package com.hust.pfma.services;
 
 import com.hust.pfma.dtos.CategoryRequest;
+import com.hust.pfma.dtos.DashboardResponse;
 import com.hust.pfma.dtos.TransactionRequest;
 import com.hust.pfma.models.*;
 import com.hust.pfma.repositories.*;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -120,5 +122,51 @@ public class TransactionService {
     public List<Transaction> getTransactionHistoryByUserId(Long userId) {
         // Gọi xuống Repository để lấy danh sách giao dịch, sắp xếp hoặc trả về trực tiếp
         return transactionRepository.findByUserId(userId);
+    }
+
+    public DashboardResponse getDashboardStats(Long userId) {
+        LocalDate now = LocalDate.now();
+        LocalDate startDate = now.withDayOfMonth(1); // Ngày đầu tháng hiện tại
+        LocalDate endDate = now.withDayOfMonth(now.lengthOfMonth()); // Ngày cuối tháng hiện tại
+
+        // 1. Lấy toàn bộ giao dịch trong tháng của user này
+        List<Transaction> transactions = transactionRepository
+                .findByUserIdAndTransactionDateBetween(userId, startDate, endDate);
+
+        double totalIncome = 0.0;
+        double totalExpense = 0.0;
+        java.util.Map<String, Double> categoryMap = new java.util.HashMap<>();
+
+        // 2. Phân loại cộng dồn Thu/Chi và nhóm theo Danh mục
+        for (Transaction t : transactions) {
+            if ("INCOME".equalsIgnoreCase(t.getType())) {
+                totalIncome += t.getAmount();
+            } else if ("EXPENSE".equalsIgnoreCase(t.getType())) {
+                totalExpense += t.getAmount();
+
+                // Nhóm số tiền tiêu theo tên danh mục
+                String catName = t.getCategory() != null ? t.getCategory().getCategoryName() : "Khác";
+                categoryMap.put(catName, categoryMap.getOrDefault(catName, 0.0) + t.getAmount());
+            }
+        }
+
+        // 3. Đóng gói danh sách thống kê danh mục
+        List<DashboardResponse.CategoryStat> catStats = new java.util.ArrayList<>();
+        for (Map.Entry<String, Double> entry : categoryMap.entrySet()) {
+            DashboardResponse.CategoryStat stat = new DashboardResponse.CategoryStat();
+            stat.setCategoryName(entry.getKey());
+            stat.setTotalAmount(entry.getValue());
+            stat.setPercentage(totalExpense > 0 ? (entry.getValue() / totalExpense) * 100 : 0.0);
+            catStats.add(stat);
+        }
+
+        // 4. Tạo đối tượng phản hồi tổng quan
+        DashboardResponse response = new DashboardResponse();
+        response.setTotalIncome(totalIncome);
+        response.setTotalExpense(totalExpense);
+        response.setNetBalance(totalIncome - totalExpense);
+        response.setCategoryStats(catStats);
+
+        return response;
     }
 }
